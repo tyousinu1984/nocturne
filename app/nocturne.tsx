@@ -1,8 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import Link from "next/link";
 import {
+  type AnchorHTMLAttributes,
   useEffect,
   useMemo,
   useRef,
@@ -10,6 +10,18 @@ import {
   useSyncExternalStore,
 } from "react";
 import { artists, type Artist } from "./data";
+
+type StaticLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
+  href: string;
+};
+
+function Link({ href, children, ...props }: StaticLinkProps) {
+  return (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  );
+}
 
 const navItems = [
   ["HOME", "/"],
