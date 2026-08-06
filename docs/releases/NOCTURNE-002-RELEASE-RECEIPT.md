@@ -5,9 +5,13 @@
 - Prepared: 2026-08-06
 - Production site: `https://nocturne.shinpei.cc.cd`
 - Source branch: `main`
-- Release source commit: recorded by the Sites saved version
-- Sites version: pending deployment
-- Deployment result: pending
+- Release source commit:
+  `ff69adaa1d06aeef38b23894748b00cf2f006f70`
+- Sites version: 3
+- Deployment result: succeeded
+- Deployment URL:
+  `https://nocturne-tokyo-2026.xlbljz698876.chatgpt.site`
+- Custom-domain result: active with HTTPS
 - Rollback boundary: Sites version 1 at commit
   `d265405ec3825c3a92251ef0242f817bf2e6e810`
 
@@ -83,3 +87,28 @@ the built-in ImageGen edit workflow.
   keyboard focus and restore focus on close
 - Independent review: conditionally passed; remaining conditions are commit,
   versioned deployment and public HTTPS smoke checks
+
+## Production result
+
+Sites version 2 first published the visual rebuild at commit
+`b8ea5b525862ec58e290fe44caff03c4d8b146df`. Browser validation found a
+Vinext client-side RSC prefetch error caused by framework links. That version
+was immediately superseded.
+
+The hotfix replaces framework-prefetched links with normal same-origin anchors
+and was released as Sites version 3 from commit
+`ff69adaa1d06aeef38b23894748b00cf2f006f70`.
+
+Post-release evidence:
+
+- `/`: HTTP 200, new age gate and NOCTURNE TOKYO metadata
+- `/profile/aika`: HTTP 200, new image-forward profile dossier
+- `/favicon.svg`: HTTP 200
+- `/og.png`: HTTP 200, 1536×1024, production hash matches the source asset
+- Public browser: no ChatGPT sign-in surface
+- Public browser console: no warnings or errors on home or profile
+- Sites Worker error logs: no events in the release validation window
+- Custom domain: active, SSL active and serving Sites version 3
+
+Release status: completed. Human Owner visual acceptance remains a separate
+product-review decision.

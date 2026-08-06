@@ -38,7 +38,7 @@ image-led navigation and a high-density catalogue rhythm.
 | G-011 | Runtime console | pass | Browser logs | No warning or error entries |
 | G-012 | Static checks | pass | Lint, build, Node tests and diff check | Lint has image optimization warnings only |
 | G-013 | Keyboard containment | pass | Independent review fix and browser state check | Age gate isolates background; closed mobile drawer is inert and hidden |
-| G-014 | Public deployment | pending | Sites release workflow | Complete after saved version and HTTPS smoke check |
+| G-014 | Public deployment | pass | Sites version 3 and public browser checks | Home, profile, favicon and OG return 200; console and Worker error logs are clear |
 
 ## Approved differences
 
@@ -52,7 +52,9 @@ image-led navigation and a high-density catalogue rhythm.
 
 ## Current status
 
-- Candidate status: local visual and interaction gates passed
-- Public deployment: pending
+- Candidate status: released as Sites version 3
+- Public deployment: passed at `https://nocturne.shinpei.cc.cd`
+- Production source:
+  `ff69adaa1d06aeef38b23894748b00cf2f006f70`
 - Human Owner visual acceptance: pending review of the replacement production
   release
