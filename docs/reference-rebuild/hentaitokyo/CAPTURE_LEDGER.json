@@ -1,0 +1,156 @@
+{
+  "schemaVersion": "1.0.0",
+  "target": "hentaitokyo-public-reference",
+  "sourceUrl": "https://hentaitokyo.com/",
+  "createdAt": "2026-08-06T00:00:00.000+09:00",
+  "scenarios": [
+    {
+      "id": "home-desktop-structure",
+      "route": "/",
+      "viewport": {
+        "width": 1280,
+        "height": 720,
+        "deviceScaleFactor": 1,
+        "touch": false
+      },
+      "environment": {
+        "locale": "en-US",
+        "colorScheme": "dark",
+        "reducedMotion": "no-preference"
+      },
+      "family": "directory-structure",
+      "preconditions": ["clean-session", "dom-ready"],
+      "allowedActions": [
+        "open-declared-route",
+        "inspect-dom",
+        "inspect-computed-style",
+        "scroll",
+        "safe-toggle"
+      ],
+      "forbiddenActions": [
+        "submit",
+        "download",
+        "external-navigation",
+        "login",
+        "logout",
+        "purchase",
+        "account-mutation",
+        "destructive-action",
+        "non-get-request",
+        "retain-explicit-media",
+        "capture-screenshot"
+      ],
+      "budget": {
+        "maxElapsedSeconds": 420,
+        "maxDomNodes": 20000,
+        "maxResourceRecords": 250,
+        "maxRetainedBytes": 5242880,
+        "consumedElapsedSeconds": 180,
+        "consumedDomNodes": 1803,
+        "consumedResourceRecords": 0,
+        "consumedRetainedBytes": 0
+      },
+      "steps": [
+        {"id": "load", "action": "open route", "status": "captured"},
+        {"id": "structure", "action": "measure landmarks and repeated components", "status": "captured"},
+        {"id": "responsive", "action": "measure desktop and mobile structural changes", "status": "captured"},
+        {"id": "capture", "action": "record non-media evidence", "status": "verified"}
+      ],
+      "artifacts": [
+        "EVIDENCE_LEDGER.md",
+        "REFERENCE_INFLUENCE.md"
+      ],
+      "status": "verified",
+      "resume": {
+        "completedStepIds": ["load", "structure", "responsive", "capture"],
+        "nextStepId": null,
+        "checkpointArtifact": "EVIDENCE_LEDGER.md"
+      },
+      "attempts": [
+        {
+          "date": "2026-08-06",
+          "result": "verified",
+          "notes": "DOM and computed-style inspection only; no source screenshot or media retained."
+        }
+      ],
+      "unknowns": [
+        "Age confirmation was not completed, so post-confirmation-only behavior was not exercised.",
+        "Source carousel timing and private transactional flows were intentionally excluded."
+      ]
+    },
+    {
+      "id": "profile-desktop-structure",
+      "route": "/profile?cc=1820",
+      "viewport": {
+        "width": 1280,
+        "height": 720,
+        "deviceScaleFactor": 1,
+        "touch": false
+      },
+      "environment": {
+        "locale": "en-US",
+        "colorScheme": "dark",
+        "reducedMotion": "no-preference"
+      },
+      "family": "profile-structure",
+      "preconditions": ["clean-session", "public-route-discovered", "dom-ready"],
+      "allowedActions": [
+        "open-declared-route",
+        "inspect-dom",
+        "inspect-computed-style",
+        "scroll"
+      ],
+      "forbiddenActions": [
+        "play-media",
+        "submit",
+        "download",
+        "external-navigation",
+        "login",
+        "logout",
+        "purchase",
+        "account-mutation",
+        "destructive-action",
+        "non-get-request",
+        "retain-explicit-media",
+        "capture-screenshot"
+      ],
+      "budget": {
+        "maxElapsedSeconds": 420,
+        "maxDomNodes": 20000,
+        "maxResourceRecords": 250,
+        "maxRetainedBytes": 5242880,
+        "consumedElapsedSeconds": 90,
+        "consumedDomNodes": 597,
+        "consumedResourceRecords": 0,
+        "consumedRetainedBytes": 0
+      },
+      "steps": [
+        {"id": "discover", "action": "select one same-origin public detail route", "status": "captured"},
+        {"id": "load", "action": "open detail route without playing media", "status": "captured"},
+        {"id": "structure", "action": "measure dossier and supporting regions", "status": "captured"},
+        {"id": "capture", "action": "record non-media evidence", "status": "verified"}
+      ],
+      "artifacts": [
+        "EVIDENCE_LEDGER.md",
+        "REFERENCE_INFLUENCE.md"
+      ],
+      "status": "verified",
+      "resume": {
+        "completedStepIds": ["discover", "load", "structure", "capture"],
+        "nextStepId": null,
+        "checkpointArtifact": "EVIDENCE_LEDGER.md"
+      },
+      "attempts": [
+        {
+          "date": "2026-08-06",
+          "result": "verified",
+          "notes": "Public GET navigation only; embedded media was not played or retained."
+        }
+      ],
+      "unknowns": [
+        "Review submission and booking behavior were excluded.",
+        "Media playback behavior was excluded."
+      ]
+    }
+  ]
+}
