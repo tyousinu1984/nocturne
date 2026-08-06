@@ -2,45 +2,57 @@
 
 ## Replay inputs
 
-- Source scenarios: `home-desktop-structure`, `profile-desktop-structure`
-- Implementation routes: `/`, `/profile/aika`
+- Source scenarios: `home-desktop-structure` and
+  `profile-desktop-structure`
+- Implementation routes: `/` and `/profile/aika`
 - Browser: Codex In-app Browser
-- Source viewport: 1280x720 and 390x844
-- Implementation viewport: 1280x720 and 390x844
-- Locale: English
-- Color scheme: dark masthead with warm light catalogue surfaces
-- Reduced motion: implemented through media query
-- Readiness: DOM complete, client interactions hydrated
-- Comparison method: structural, geometric and interaction checkpoints
+- Viewports: 1280×720 and 390×844
+- Capture date: 2026-08-06
+- Comparison method: structural, geometric, visual-system and interaction
+  checkpoints
+
+## Visual-system correction
+
+The earlier candidate used warm ivory, purple accents, serif typography,
+orbital graphics and low-density editorial spacing. Human Owner feedback
+identified that direction as visually unrelated to the reference.
+
+The replacement candidate removes those signals and uses black, white, hot
+pink, orange, condensed sans-serif typography, rectangular utility bands,
+image-led navigation and a high-density catalogue rhythm.
 
 ## Gates
 
 | Gate ID | Domain | Status | Evidence | Notes |
 | --- | --- | --- | --- | --- |
-| G-001 | Brand and asset replacement | pass | App source and rendered HTML | No source mark, copy, media URL or external asset |
-| G-002 | Home hierarchy | pass | Local browser checks | Masthead, feature rail, navigation, hero, ticker, directory, reviews and journal present |
-| G-003 | Directory behavior | pass | Local browser checks | Ginza filter returns 4, `tea` search returns Rin, reveal expands 8 to 12 |
-| G-004 | Profile navigation | pass | Local browser checks | Card navigation reaches `/profile/aika` with schedule, gallery and reviews |
-| G-005 | Desktop overflow | pass | 1280 body and client widths equal | No horizontal page overflow |
-| G-006 | Mobile navigation | pass | 390x844 browser check | Drawer exposes six links and reports expanded state |
-| G-007 | Mobile overflow | pass | 390 body and client widths equal | Source overflow is intentionally corrected |
-| G-008 | Build and static checks | pass | `npm run lint`, `npm run build`, Node tests | All checks pass |
-| G-009 | Runtime console | pass | Browser console | No warning or error entries |
-| G-010 | Deployment boundary | pass | Local project state | No deployment or production change performed |
+| G-001 | Brand and asset replacement | pass | App source and local assets | No source mark, copy, font, code or media |
+| G-002 | Service-region hierarchy | pass | Browser geometry | Five 189×228px tiles before ten-item navigation |
+| G-003 | Hero geometry | pass | Browser geometry | 400px high image-led hero |
+| G-004 | Directory geometry | pass | Browser geometry | Four 291×550px cards at 1280px |
+| G-005 | Directory behavior | pass | Browser interaction | `tea` returns Rin; reveal expands 8 to 12 |
+| G-006 | Desktop overflow | pass | Browser geometry | Client and scroll width both 1280 |
+| G-007 | Mobile hierarchy | pass | 390×844 browser check | Scrollable five-tile rail, hero, ticker and notice |
+| G-008 | Mobile navigation | pass | Browser interaction | Ten-link drawer reports expanded state |
+| G-009 | Mobile directory | pass | Browser geometry | Two 183px cards; document width remains 390 |
+| G-010 | Profile route | pass | Browser check | Large dossier, four thumbnails and five schedule cells |
+| G-011 | Runtime console | pass | Browser logs | No warning or error entries |
+| G-012 | Static checks | pass | Lint, build, Node tests and diff check | Lint has image optimization warnings only |
+| G-013 | Keyboard containment | pass | Independent review fix and browser state check | Age gate isolates background; closed mobile drawer is inert and hidden |
+| G-014 | Public deployment | pending | Sites release workflow | Complete after saved version and HTTPS smoke check |
 
-## Discrepancies
+## Approved differences
 
-| ID | Classification | Severity | Status | Evidence | Owner | Replay proof |
-| --- | --- | --- | --- | --- | --- | --- |
-| D-001 | approved-difference | high | accepted | Scope D-001 | Project policy | Original Nocturne identity |
-| D-002 | approved-difference | high | accepted | Scope D-002 | Project policy | CSS abstract artwork |
-| D-003 | approved-difference | high | accepted | Scope D-004 | Project policy | Booking, payment and contact flows absent |
-| D-004 | approved-difference | medium | accepted | E-010, G-007 | Implementation | Mobile overflow corrected |
-| D-005 | approved-difference | medium | accepted | E-005 | Implementation | Hero uses restrained composition instead of copying carousel media |
+| ID | Classification | Severity | Status | Evidence | Reason |
+| --- | --- | --- | --- | --- | --- |
+| D-001 | approved difference | high | accepted | Scope D-001 | Original identity and copy |
+| D-002 | approved difference | high | accepted | Scope D-002 | Original fictional adult portraits |
+| D-003 | approved difference | high | accepted | Scope D-003 | No booking, phone, address, payment or messaging |
+| D-004 | approved difference | medium | accepted | E-010, G-009 | Source mobile overflow corrected |
+| D-005 | approved difference | medium | accepted | E-005, G-003 | Static hero preserves rhythm without copying media |
 
-## Final status
+## Current status
 
-- Status: pass
-- Open evidence risks: source post-age-gate animation timing and transactional
-  behavior were intentionally excluded
-- Human Owner acceptance: pending user review
+- Candidate status: local visual and interaction gates passed
+- Public deployment: pending
+- Human Owner visual acceptance: pending review of the replacement production
+  release

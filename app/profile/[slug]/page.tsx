@@ -12,9 +12,9 @@ export async function generateMetadata({
 }: ProfilePageProps): Promise<Metadata> {
   const { slug } = await params;
   const artist = artists.find((candidate) => candidate.slug === slug);
-  if (!artist) return { title: "Dossier not found" };
+  if (!artist) return { title: "Profile not found" };
   return {
-    title: `${artist.name} dossier`,
+    title: `${artist.name} Profile`,
     description: artist.shortNote,
   };
 }

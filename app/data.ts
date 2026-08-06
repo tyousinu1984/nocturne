@@ -82,10 +82,10 @@ export const artists: Artist[] = [
     role: "Light designer",
     shortNote: "Soft prisms, sharp silhouettes, and precise visual timing.",
     biography:
-      "Mio develops fictional light studies for small rooms and experimental stages. The profile is a safe, abstract substitute for the reference site's media-heavy detail layout.",
+      "Mio develops fictional light studies for small rooms and experimental stages. Her profile uses an original studio portrait and contains no real-world service information.",
     languages: ["Japanese", "English"],
     disciplines: ["Lighting", "Installation", "Film"],
-    palette: ["#bd9cff", "#644aaa", "#171027"],
+    palette: ["#ff2f91", "#ff8500", "#171717"],
     stats: [
       { label: "Practice", value: "4 years" },
       { label: "Format", value: "Light" },
@@ -166,7 +166,7 @@ export const artists: Artist[] = [
     role: "Image maker",
     shortNote: "Grain, reflections, and fragments gathered after midnight.",
     biography:
-      "Kei creates fictional photographic essays from reflections and abstract architecture. The visual assets in this prototype are CSS-generated and contain no source photography.",
+      "Kei creates fictional photographic essays from reflections and abstract architecture. Every portrait in this directory was created as an original fictional adult character.",
     languages: ["Japanese", "English"],
     disciplines: ["Photography", "Print", "Architecture"],
     palette: ["#7ba9ff", "#345184", "#111827"],
@@ -197,7 +197,7 @@ export const artists: Artist[] = [
       "Nami is a fictional performance poet whose work studies pauses, repetition, and the emotional geometry of rooms. This is original prototype copy.",
     languages: ["Japanese", "English"],
     disciplines: ["Poetry", "Voice", "Performance"],
-    palette: ["#d8a1ff", "#713e91", "#21122a"],
+    palette: ["#ff2f91", "#c1125a", "#171717"],
     stats: [
       { label: "Practice", value: "5 years" },
       { label: "Format", value: "Voice" },
@@ -250,7 +250,7 @@ export const artists: Artist[] = [
     role: "Set stylist",
     shortNote: "Playful objects arranged with unusual calm and intention.",
     biography:
-      "Ema is a fictional set stylist composing small worlds from paper, glass, and found geometry. All displayed works are abstract CSS compositions.",
+      "Ema is a fictional set stylist composing small worlds from paper, glass, and found geometry. The displayed portrait and profile details are original prototype material.",
     languages: ["Japanese", "English"],
     disciplines: ["Set design", "Objects", "Colour"],
     palette: ["#ffba73", "#b45335", "#28140d"],

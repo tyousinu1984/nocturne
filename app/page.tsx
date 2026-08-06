@@ -2,12 +2,9 @@ import type { Metadata } from "next";
 import { HomeExperience } from "./nocturne";
 
 export const metadata: Metadata = {
-  title: "Tokyo after dark",
+  title: "Cast Directory",
   description:
-    "A fictional adults-only artist directory and editorial interface demo.",
-  other: {
-    "codex-preview": "development",
-  },
+    "Explore the latest fictional adult profiles, schedules, rankings and editorial notes from NOCTURNE TOKYO.",
 };
 
 export default function Home() {

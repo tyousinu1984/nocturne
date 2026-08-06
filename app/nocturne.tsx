@@ -1,15 +1,69 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
-import type { CSSProperties } from "react";
-import { artists, featureTiles, testimonials, type Artist } from "./data";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { artists, type Artist } from "./data";
 
-type ArtStyle = CSSProperties & {
-  "--tone-a": string;
-  "--tone-b": string;
-  "--tone-c": string;
-};
+const navItems = [
+  ["HOME", "/"],
+  ["CAST", "/#directory"],
+  ["SCHEDULE", "/#schedule"],
+  ["RANKING", "/#ranking"],
+  ["SYSTEM", "/#system"],
+  ["ACCESS", "/#access"],
+  ["REVIEWS", "/#reviews"],
+  ["BLOG", "/#journal"],
+  ["FAQ", "/#faq"],
+  ["CONTACT", "/#contact"],
+];
+
+const quickLinks = [
+  { number: "01", title: "FIRST GUIDE", sub: "How to explore", slug: "aika", href: "#system" },
+  { number: "02", title: "ALL CAST", sub: "Meet the lineup", slug: "ren", href: "#directory" },
+  { number: "03", title: "SCHEDULE", sub: "This week", slug: "mio", href: "#schedule" },
+  { number: "04", title: "RANKING", sub: "Most viewed", slug: "sora", href: "#ranking" },
+  { number: "05", title: "STUDIO INFO", sub: "Tokyo locations", slug: "yuna", href: "#access" },
+];
+
+const reviews = [
+  {
+    title: "A polished night-time directory",
+    body: "The profiles are easy to compare and every status is visible before opening a page.",
+    date: "2026.08.05",
+  },
+  {
+    title: "Dense, direct and surprisingly clear",
+    body: "The large cast grid feels energetic while the filters keep the browsing experience manageable.",
+    date: "2026.08.03",
+  },
+  {
+    title: "The profile pages carry the same rhythm",
+    body: "Portraits, schedules, personal notes and reviews all stay in one continuous visual flow.",
+    date: "2026.07.30",
+  },
+  {
+    title: "Strong Tokyo directory character",
+    body: "Black, white and neon accents make the entire site feel immediate and recognisable.",
+    date: "2026.07.28",
+  },
+  {
+    title: "The mobile menu is quick to understand",
+    body: "The compact navigation keeps the long directory usable on a small screen.",
+    date: "2026.07.24",
+  },
+  {
+    title: "A useful editorial showcase",
+    body: "There is plenty to explore without introducing messaging, payment or reservation flows.",
+    date: "2026.07.20",
+  },
+];
 
 function ArrowIcon() {
   return (
@@ -22,23 +76,29 @@ function ArrowIcon() {
 function SearchIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="m16 16 4 4" />
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m15.5 15.5 4.5 4.5" />
     </svg>
   );
 }
 
 function MenuIcon({ open }: { open: boolean }) {
   return (
-    <span className={`menu-icon ${open ? "is-open" : ""}`} aria-hidden="true">
+    <span className={`menu-lines ${open ? "is-open" : ""}`} aria-hidden="true">
+      <i />
       <i />
       <i />
     </span>
   );
 }
 
+function portraitPath(slug: string) {
+  return `/portraits/${slug}.jpg`;
+}
+
 function AgeGate() {
   const [declined, setDeclined] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const confirmed = useSyncExternalStore(
     (onStoreChange) => {
       window.addEventListener("storage", onStoreChange);
@@ -52,6 +112,57 @@ function AgeGate() {
     () => false,
   );
 
+  useEffect(() => {
+    if (confirmed) return;
+
+    const panel = panelRef.current;
+    const siteContent = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-site-content]"),
+    );
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    siteContent.forEach((element) => {
+      element.inert = true;
+      element.setAttribute("aria-hidden", "true");
+    });
+
+    const focusableSelector =
+      'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusables = panel
+      ? Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector))
+      : [];
+
+    focusables[0]?.focus();
+
+    function trapFocus(event: KeyboardEvent) {
+      if (event.key !== "Tab" || focusables.length === 0) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || !panel?.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !panel?.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    panel?.addEventListener("keydown", trapFocus);
+
+    return () => {
+      panel?.removeEventListener("keydown", trapFocus);
+      document.body.style.overflow = previousOverflow;
+      siteContent.forEach((element) => {
+        element.inert = false;
+        element.removeAttribute("aria-hidden");
+      });
+    };
+  }, [confirmed, declined]);
+
   function accept() {
     window.localStorage.setItem("nocturne-age-confirmed", "yes");
     window.dispatchEvent(new Event("nocturne-age-change"));
@@ -60,254 +171,294 @@ function AgeGate() {
   if (confirmed) return null;
 
   return (
-    <div className="age-layer">
+    <div className="gate-overlay">
       <div
-        className="age-dialog"
+        className="gate-panel"
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="age-title"
-        aria-describedby="age-description"
+        aria-labelledby="gate-title"
+        aria-describedby="gate-copy"
       >
-        <div className="age-mark" aria-hidden="true">
-          N
+        <p className="gate-overline">TOKYO NIGHT DIRECTORY</p>
+        <div className="gate-logo">
+          <span>NOCTURNE</span>
+          <small>東京・夜のエンターテインメントガイド</small>
         </div>
-        <p className="kicker">Adults-only interface study</p>
-        <h2 id="age-title">
-          A private catalogue
-          <br />
-          after dark.
-        </h2>
+        <div className="gate-rule" />
         {declined ? (
-          <div className="age-declined" role="status">
-            <p>This prototype stays closed until you confirm you are 21 or older.</p>
-            <button type="button" className="text-button" onClick={() => setDeclined(false)}>
-              Go back
+          <div className="gate-declined" role="status">
+            <h2 id="gate-title">ENTRY PAUSED</h2>
+            <p id="gate-copy">This directory is intended for visitors aged 21 and over.</p>
+            <button type="button" className="gate-text-button" onClick={() => setDeclined(false)}>
+              RETURN
             </button>
           </div>
         ) : (
           <>
-            <p id="age-description">
-              Nocturne is a fictional, non-transactional design prototype. All
-              profiles are invented adults and every artwork is abstract.
+            <h2 id="gate-title">WELCOME TO NOCTURNE TOKYO</h2>
+            <p id="gate-copy">
+              This editorial directory contains fictional adult profiles. Please
+              confirm that you are 21 years of age or older.
             </p>
-            <div className="age-actions">
-              <button type="button" className="button button-light" onClick={accept}>
-                I am 21 or older
+            <div className="gate-actions">
+              <button type="button" className="gate-enter" onClick={accept}>
+                ENTER 21+
                 <ArrowIcon />
               </button>
-              <button
-                type="button"
-                className="button button-ghost"
-                onClick={() => setDeclined(true)}
-              >
-                Leave the catalogue
+              <button type="button" className="gate-exit" onClick={() => setDeclined(true)}>
+                EXIT
               </button>
             </div>
           </>
         )}
-        <p className="age-fineprint">
-          Local demo only. No booking, payment, messaging, or real-world service.
+        <p className="gate-note">
+          All profiles are fictional adults. No booking, payment or contact service is provided.
         </p>
       </div>
     </div>
   );
 }
 
-function Brand() {
+function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link className="brand" href="/" aria-label="Nocturne home">
-      <span className="brand-glyph">N</span>
-      <span>
-        <b>Nocturne</b>
-        <small>Tokyo after dark</small>
-      </span>
+    <Link className={`brand-lockup ${compact ? "is-compact" : ""}`} href="/">
+      <strong>NOCTURNE</strong>
+      <span>TOKYO</span>
+      <small>NIGHT ENTERTAINMENT DIRECTORY</small>
     </Link>
   );
 }
 
 function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const navItems = [
-    ["Directory", "/#directory"],
-    ["Tonight", "/#tonight"],
-    ["Districts", "/#districts"],
-    ["Journal", "/#journal"],
-    ["Reviews", "/#reviews"],
-    ["Studio", "/#studio"],
-  ];
+  const menuRef = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuWasOpen = useRef(false);
+
+  useEffect(() => {
+    const menu = menuRef.current;
+    const underlay = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-menu-underlay]"),
+    );
+
+    if (!menuOpen) {
+      if (menuWasOpen.current) {
+        menuButtonRef.current?.focus();
+      }
+      menuWasOpen.current = false;
+      return;
+    }
+
+    menuWasOpen.current = true;
+    underlay.forEach((element) => {
+      element.inert = true;
+      element.setAttribute("aria-hidden", "true");
+    });
+
+    const focusableSelector =
+      'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+    const focusables = menu
+      ? Array.from(menu.querySelectorAll<HTMLElement>(focusableSelector))
+      : [];
+
+    focusables[0]?.focus();
+
+    function handleMenuKeydown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMenuOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab" || focusables.length === 0) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || !menu?.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !menu?.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    menu?.addEventListener("keydown", handleMenuKeydown);
+
+    return () => {
+      menu?.removeEventListener("keydown", handleMenuKeydown);
+      underlay.forEach((element) => {
+        element.inert = false;
+        element.removeAttribute("aria-hidden");
+      });
+    };
+  }, [menuOpen]);
 
   return (
-    <>
-      <div className="masthead">
-        <div className="shell masthead-inner">
+    <header className="site-header">
+      <div className="header-top" data-menu-underlay>
+        <div className="site-width header-top-inner">
           <Brand />
-          <div className="masthead-meta">
-            <span>21+ fictional catalogue</span>
-            <span>Tokyo / 35.6762° N</span>
+          <div className="header-tools">
+            <span className="open-status">
+              <i />
+              OPEN TODAY
+            </span>
+            <span className="language-select">EN / JP</span>
+            <button
+              type="button"
+              className="menu-button"
+              ref={menuButtonRef}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-menu"
+              onClick={() => setMenuOpen((current) => !current)}
+            >
+              <MenuIcon open={menuOpen} />
+            </button>
           </div>
-          <button
-            type="button"
-            className="mobile-menu-button"
-            aria-expanded={menuOpen}
-            aria-controls="mobile-navigation"
-            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
-            onClick={() => setMenuOpen((current) => !current)}
-          >
-            <MenuIcon open={menuOpen} />
-          </button>
         </div>
       </div>
-      <nav className="global-nav" aria-label="Primary navigation">
-        <div className="shell global-nav-inner">
+
+      <section className="quick-section" aria-label="Quick guide" data-menu-underlay>
+        <div className="site-width quick-grid">
+          {quickLinks.map((item) => (
+            <a href={item.href} className="quick-card" key={item.number}>
+              <img src={portraitPath(item.slug)} alt="" />
+              <span className="quick-shade" />
+              <b>{item.number}</b>
+              <div>
+                <strong>{item.title}</strong>
+                <small>{item.sub}</small>
+              </div>
+              <ArrowIcon />
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <nav
+        className="main-navigation"
+        aria-label="Primary navigation"
+        data-menu-underlay
+      >
+        <div className="site-width main-navigation-inner">
           {navItems.map(([label, href]) => (
             <Link key={label} href={href}>
               {label}
             </Link>
           ))}
-          <span className="nav-spacer" />
-          <Link className="nav-featured" href="/profile/aika">
-            Featured dossier
-            <ArrowIcon />
-          </Link>
         </div>
       </nav>
+
       <nav
-        id="mobile-navigation"
-        className={`mobile-navigation ${menuOpen ? "is-open" : ""}`}
+        id="mobile-menu"
+        ref={menuRef}
+        className={`mobile-menu ${menuOpen ? "is-open" : ""}`}
         aria-label="Mobile navigation"
+        aria-hidden={!menuOpen}
+        inert={!menuOpen}
       >
+        <div className="mobile-menu-head">
+          <Brand compact />
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setMenuOpen(false)}
+          >
+            ×
+          </button>
+        </div>
         {navItems.map(([label, href], index) => (
-          <Link key={label} href={href} onClick={() => setMenuOpen(false)}>
-            <span>0{index + 1}</span>
-            {label}
+          <Link href={href} key={label} onClick={() => setMenuOpen(false)}>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <b>{label}</b>
+            <ArrowIcon />
           </Link>
         ))}
       </nav>
-    </>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="site-footer" id="studio">
-      <div className="shell footer-top">
-        <div>
-          <p className="kicker">Nocturne / local study</p>
-          <h2>Designed for the hour when the city changes character.</h2>
-        </div>
-        <p>
-          This original interface prototype studies the hierarchy of a public
-          directory website. It contains no real people, adult media,
-          transactions, messaging, contact details, or external service links.
-        </p>
-      </div>
-      <div className="shell footer-grid">
-        <div>
-          <Brand />
-        </div>
-        <div>
-          <span>Explore</span>
-          <Link href="/#directory">Directory</Link>
-          <Link href="/#journal">Journal</Link>
-          <Link href="/profile/aika">Featured dossier</Link>
-        </div>
-        <div>
-          <span>Prototype</span>
-          <p>Original copy</p>
-          <p>Abstract CSS artwork</p>
-          <p>Local data only</p>
-        </div>
-        <div>
-          <span>Boundary</span>
-          <p>Fictional adults 21+</p>
-          <p>No commerce</p>
-          <p>No external APIs</p>
-        </div>
-      </div>
-      <div className="shell footer-bottom">
-        <span>© 2026 Nocturne interface study</span>
-        <span>Made for local evaluation</span>
-      </div>
-    </footer>
-  );
-}
-
-function AbstractArt({
-  artist,
-  index = 0,
-  variant = "card",
-}: {
-  artist: Artist;
-  index?: number;
-  variant?: "card" | "hero" | "profile" | "gallery";
-}) {
-  const style: ArtStyle = {
-    "--tone-a": artist.palette[0],
-    "--tone-b": artist.palette[1],
-    "--tone-c": artist.palette[2],
-  };
-
-  return (
-    <div
-      className={`abstract-art art-${variant} art-variant-${index % 6}`}
-      style={style}
-      aria-label={`Abstract artwork for ${artist.name}`}
-      role="img"
-    >
-      <span className="art-orbit" />
-      <span className="art-plane" />
-      <span className="art-glow" />
-      <span className="art-grain" />
-      <b>{artist.monogram}</b>
-    </div>
-  );
-}
-
-function FeatureTiles() {
-  return (
-    <section className="feature-rail shell" aria-label="Catalogue sections">
-      {featureTiles.map((tile, index) => (
-        <a key={tile.eyebrow} className="feature-tile" href={index === 0 ? "#directory" : "#journal"}>
-          <span>{tile.eyebrow}</span>
-          <div className={`mini-art mini-art-${index + 1}`} aria-hidden="true">
-            <i />
-          </div>
-          <h2>{tile.title}</h2>
-          <p>{tile.note}</p>
-        </a>
-      ))}
-    </section>
+    </header>
   );
 }
 
 function Hero() {
-  const featured = artists.slice(0, 3);
   return (
-    <section className="hero" aria-labelledby="hero-title">
-      <div className="hero-track">
-        {featured.map((artist, index) => (
-          <Link className="hero-panel" href={`/profile/${artist.slug}`} key={artist.slug}>
-            <AbstractArt artist={artist} index={index} variant="hero" />
-            <div className="hero-panel-copy">
-              <span>0{index + 1} / Featured study</span>
-              <h2>{artist.name}</h2>
-              <p>{artist.role}</p>
-            </div>
-          </Link>
-        ))}
-      </div>
-      <div className="hero-copy shell">
-        <p className="kicker">Nocturne edition 08.26</p>
-        <h1 id="hero-title">
-          The night has
+    <section className="home-hero">
+      <img
+        className="hero-lineup"
+        src="/portraits/hero-lineup.jpg"
+        alt="Four fictional adult performers from the Nocturne directory"
+      />
+      <span className="hero-darken" />
+      <div className="site-width hero-content">
+        <p className="hero-kicker">TOKYO / AOYAMA / GINZA / DAIKANYAMA</p>
+        <h1>
+          TONIGHT&apos;S
           <br />
-          its own index.
+          <em>CAST FILE</em>
         </h1>
-        <p>
-          A fictional directory of adult artists, nocturnal practices, and
-          abstract dossiers shaped around Tokyo&apos;s quieter hours.
+        <p className="hero-description">
+          Meet the latest fictional adult performers, creators and hosts featured
+          in the Nocturne Tokyo editorial directory.
         </p>
-        <a className="round-link" href="#directory" aria-label="Explore the directory">
+        <a href="#directory" className="hero-button">
+          VIEW ALL CAST
+          <ArrowIcon />
+        </a>
+      </div>
+      <div className="hero-badge">
+        <span>2026</span>
+        <b>NEW</b>
+        <small>LINEUP</small>
+      </div>
+    </section>
+  );
+}
+
+function LiveTicker() {
+  const names = [...artists.slice(0, 9), ...artists.slice(0, 9)];
+  return (
+    <section className="live-ticker" id="schedule">
+      <div className="live-label">
+        <i />
+        NOW ONLINE
+      </div>
+      <div className="live-window">
+        <div className="live-track">
+          {names.map((artist, index) => (
+            <Link href={`/profile/${artist.slug}`} key={`${artist.slug}-${index}`}>
+              <img src={portraitPath(artist.slug)} alt="" />
+              <span>
+                <b>{artist.name}</b>
+                <small>{artist.district}</small>
+              </span>
+              <em>{artist.status}</em>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function NoticeBanner() {
+  return (
+    <section className="notice-wrap">
+      <div className="site-width notice-banner">
+        <div className="notice-date">
+          <b>06</b>
+          <span>AUG</span>
+        </div>
+        <div>
+          <p>UPDATED TODAY</p>
+          <h2>12 CAST PROFILES ARE NOW LIVE</h2>
+          <span>New schedules, photo updates and directory notes have been added.</span>
+        </div>
+        <a href="#directory">
+          CHECK TODAY&apos;S CAST
           <ArrowIcon />
         </a>
       </div>
@@ -315,53 +466,58 @@ function Hero() {
   );
 }
 
-function TonightStrip() {
+function SectionTitle({
+  eyebrow,
+  title,
+  note,
+  light = false,
+}: {
+  eyebrow: string;
+  title: string;
+  note?: string;
+  light?: boolean;
+}) {
   return (
-    <section className="tonight-strip" id="tonight" aria-label="Tonight status">
-      <div className="tonight-label">
-        <span className="pulse" />
-        Tonight in the archive
+    <div className={`section-title ${light ? "is-light" : ""}`}>
+      <div>
+        <span>{eyebrow}</span>
+        <h2>{title}</h2>
       </div>
-      <div className="marquee-viewport">
-        <div className="marquee-track">
-          {[...artists.slice(0, 8), ...artists.slice(0, 8)].map((artist, index) => (
-            <Link href={`/profile/${artist.slug}`} key={`${artist.slug}-${index}`}>
-              <b>{artist.name}</b>
-              <span>{artist.role}</span>
-              <i>{artist.status}</i>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
+      {note && <p>{note}</p>}
+    </div>
   );
 }
 
 function ArtistCard({ artist, index }: { artist: Artist; index: number }) {
+  const locationClass = artist.district.toLowerCase();
   return (
-    <article className="artist-card">
-      <Link className="artist-art-link" href={`/profile/${artist.slug}`}>
-        <AbstractArt artist={artist} index={index} />
-        <span className="language-badge">{artist.languages.join(" / ")}</span>
-        <span className="profile-number">N° {String(index + 1).padStart(2, "0")}</span>
+    <article className="cast-card">
+      <Link className="cast-photo" href={`/profile/${artist.slug}`}>
+        <img src={portraitPath(artist.slug)} alt={`${artist.name}, fictional adult profile`} />
+        <span className="language-chip">{artist.languages.join(" / ")}</span>
+        <span className="cast-id">N° {String(index + 1).padStart(2, "0")}</span>
+        <span className={`cast-location is-${locationClass}`}>{artist.district}</span>
       </Link>
-      <div className="artist-status">
-        <span className={`tier tier-${artist.tier.toLowerCase()}`}>{artist.tier}</span>
-        <span>{artist.district}</span>
-      </div>
-      <div className="artist-copy">
-        <div>
-          <h3>
-            <Link href={`/profile/${artist.slug}`}>{artist.name}</Link>
-          </h3>
-          <p>{artist.role}</p>
-        </div>
-        <span className={`availability availability-${artist.status.toLowerCase().replace(" ", "-")}`}>
+      <div className="cast-bars">
+        <span className={`rank-tag is-${artist.tier.toLowerCase()}`}>{artist.tier}</span>
+        <span className="status-tag">
+          <i />
           {artist.status}
         </span>
-        <p className="artist-note">{artist.shortNote}</p>
-        <Link className="card-link" href={`/profile/${artist.slug}`}>
-          Open dossier
+      </div>
+      <div className="cast-info">
+        <h3>
+          <Link href={`/profile/${artist.slug}`}>{artist.name}</Link>
+        </h3>
+        <p className="cast-role">{artist.role}</p>
+        <p className="cast-comment">{artist.shortNote}</p>
+        <div className="cast-skills">
+          {artist.disciplines.slice(0, 3).map((item) => (
+            <span key={item}>{item}</span>
+          ))}
+        </div>
+        <Link className="profile-link" href={`/profile/${artist.slug}`}>
+          OPEN PROFILE
           <ArrowIcon />
         </Link>
       </div>
@@ -378,187 +534,304 @@ function Directory() {
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return artists.filter((artist) => {
-      const matchesDistrict = district === "All" || artist.district === district;
-      const matchesStatus = status === "All" || artist.status === status;
-      const haystack = [
-        artist.name,
-        artist.role,
-        artist.district,
-        ...artist.disciplines,
-      ]
+      const districtMatch = district === "All" || artist.district === district;
+      const statusMatch = status === "All" || artist.status === status;
+      const text = [artist.name, artist.role, artist.district, ...artist.disciplines]
         .join(" ")
         .toLowerCase();
-      return matchesDistrict && matchesStatus && (!needle || haystack.includes(needle));
+      return districtMatch && statusMatch && (!needle || text.includes(needle));
     });
-  }, [district, status, query]);
+  }, [district, query, status]);
+
+  function resetCount() {
+    setVisibleCount(8);
+  }
 
   return (
-    <section className="directory-section" id="directory">
-      <div className="shell directory-heading">
-        <div>
-          <p className="kicker">The directory / 12 fictional adults</p>
-          <h2>Choose a frequency.</h2>
+    <section className="directory" id="directory">
+      <div className="site-width">
+        <SectionTitle
+          eyebrow="CAST DIRECTORY"
+          title="MEET THE NOCTURNE LINEUP"
+          note="Browse every fictional adult profile by district, activity and editorial status."
+        />
+
+        <div className="directory-toolbar" id="districts">
+          <label className="directory-search">
+            <SearchIcon />
+            <span className="sr-only">Search the cast directory</span>
+            <input
+              value={query}
+              placeholder="SEARCH NAME OR STYLE"
+              onChange={(event) => {
+                setQuery(event.target.value);
+                resetCount();
+              }}
+            />
+          </label>
+          <div className="filter-row" aria-label="District filter">
+            <b>AREA</b>
+            {["All", "Aoyama", "Ginza", "Daikanyama"].map((value) => (
+              <button
+                type="button"
+                className={district === value ? "is-active" : ""}
+                aria-pressed={district === value}
+                onClick={() => {
+                  setDistrict(value);
+                  resetCount();
+                }}
+                key={value}
+              >
+                {value.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <div className="filter-row" aria-label="Status filter">
+            <b>STATUS</b>
+            {["All", "Tonight", "This week", "Private"].map((value) => (
+              <button
+                type="button"
+                className={status === value ? "is-active" : ""}
+                aria-pressed={status === value}
+                onClick={() => {
+                  setStatus(value);
+                  resetCount();
+                }}
+                key={value}
+              >
+                {value.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
-        <p>
-          Browse an original set of abstract profiles. Filters work locally and
-          never send data away from this page.
-        </p>
-      </div>
-      <div className="shell filter-panel">
-        <label className="search-field">
-          <SearchIcon />
-          <span className="sr-only">Search profiles</span>
-          <input
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setVisibleCount(8);
-            }}
-            placeholder="Search name, practice, district"
-          />
-        </label>
-        <div className="filter-group" aria-label="Filter by district">
-          <span>District</span>
-          {["All", "Aoyama", "Ginza", "Daikanyama"].map((value) => (
+
+        <div className="directory-result" role="status">
+          <b>{String(filtered.length).padStart(2, "0")} PROFILES</b>
+          <span>LAST UPDATE 2026.08.06 / 19:00 JST</span>
+        </div>
+
+        {filtered.length > 0 ? (
+          <div className="cast-grid">
+            {filtered.slice(0, visibleCount).map((artist) => (
+              <ArtistCard
+                artist={artist}
+                index={artists.indexOf(artist)}
+                key={artist.slug}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="directory-empty">
+            <b>NO PROFILE FOUND</b>
             <button
               type="button"
-              key={value}
-              className={district === value ? "is-active" : ""}
-              aria-pressed={district === value}
               onClick={() => {
-                setDistrict(value);
-                setVisibleCount(8);
+                setDistrict("All");
+                setStatus("All");
+                setQuery("");
               }}
             >
-              {value}
+              RESET FILTERS
             </button>
-          ))}
-        </div>
-        <div className="filter-group" aria-label="Filter by status">
-          <span>Index</span>
-          {["All", "Tonight", "This week", "Private"].map((value) => (
-            <button
-              type="button"
-              key={value}
-              className={status === value ? "is-active" : ""}
-              aria-pressed={status === value}
-              onClick={() => {
-                setStatus(value);
-                setVisibleCount(8);
-              }}
-            >
-              {value}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="shell result-meta" role="status">
-        <span>{String(filtered.length).padStart(2, "0")} dossiers</span>
-        <span>Updated 06 Aug 2026 / local data</span>
-      </div>
-      {filtered.length ? (
-        <div className="artist-grid shell">
-          {filtered.slice(0, visibleCount).map((artist) => (
-            <ArtistCard artist={artist} index={artists.indexOf(artist)} key={artist.slug} />
-          ))}
-        </div>
-      ) : (
-        <div className="shell empty-state">
-          <p>No dossier matches that combination.</p>
+          </div>
+        )}
+
+        {visibleCount < filtered.length && (
           <button
             type="button"
-            className="text-button"
-            onClick={() => {
-              setDistrict("All");
-              setStatus("All");
-              setQuery("");
-            }}
+            className="more-cast"
+            onClick={() => setVisibleCount((current) => current + 4)}
           >
-            Reset filters
-          </button>
-        </div>
-      )}
-      {visibleCount < filtered.length && (
-        <div className="load-more-wrap">
-          <button
-            type="button"
-            className="button button-dark"
-            onClick={() => setVisibleCount((count) => count + 4)}
-          >
-            Reveal four more
+            SHOW MORE CAST
             <ArrowIcon />
           </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function Ranking() {
+  return (
+    <section className="ranking-section" id="ranking">
+      <div className="site-width">
+        <SectionTitle
+          eyebrow="WEEKLY RANKING"
+          title="MOST VIEWED PROFILES"
+          note="The five profiles receiving the most editorial views this week."
+          light
+        />
+        <div className="ranking-grid">
+          {artists.slice(0, 5).map((artist, index) => (
+            <Link href={`/profile/${artist.slug}`} key={artist.slug}>
+              <span className="ranking-number">0{index + 1}</span>
+              <img src={portraitPath(artist.slug)} alt="" />
+              <div>
+                <b>{artist.name}</b>
+                <small>{artist.role}</small>
+              </div>
+              <ArrowIcon />
+            </Link>
+          ))}
         </div>
-      )}
+      </div>
+    </section>
+  );
+}
+
+function SystemGuide() {
+  const steps = [
+    ["01", "CHECK THE CAST", "Compare profiles, styles and current editorial status."],
+    ["02", "OPEN A PROFILE", "View portrait updates, schedules, notes and archive entries."],
+    ["03", "FOLLOW THE JOURNAL", "Return for weekly ranking and new directory stories."],
+  ];
+  return (
+    <section className="system-guide" id="system">
+      <div className="site-width">
+        <SectionTitle
+          eyebrow="FIRST GUIDE"
+          title="HOW TO EXPLORE NOCTURNE"
+          note="A simple three-step path through the Tokyo night directory."
+        />
+        <div className="guide-grid">
+          {steps.map(([number, title, copy]) => (
+            <article key={number}>
+              <span>{number}</span>
+              <div>
+                <h3>{title}</h3>
+                <p>{copy}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
 
 function Reviews() {
   return (
-    <section className="reviews-section" id="reviews">
-      <div className="shell section-rule-heading">
-        <p className="kicker">Reader notes / controlled prototype feedback</p>
-        <h2>Four impressions from the dark.</h2>
-      </div>
-      <div className="shell reviews-grid">
-        {testimonials.map((item, index) => (
-          <blockquote key={item.source}>
-            <span>0{index + 1}</span>
-            <p>“{item.quote}”</p>
-            <cite>{item.source}</cite>
-          </blockquote>
-        ))}
+    <section className="review-section" id="reviews">
+      <div className="site-width">
+        <SectionTitle
+          eyebrow="READER REVIEWS"
+          title="LATEST DIRECTORY NOTES"
+          note="Recent impressions from visitors exploring Nocturne Tokyo."
+        />
+        <div className="review-grid">
+          {reviews.map((review, index) => (
+            <article key={review.title}>
+              <div className="review-icon">
+                <img src={portraitPath(artists[index].slug)} alt="" />
+              </div>
+              <div>
+                <span>{review.date}</span>
+                <h3>{review.title}</h3>
+                <p>{review.body}</p>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   );
 }
 
 function Journal() {
-  const entries = [
+  const stories = [
     {
-      date: "06.08.26",
-      title: "How neon changes the distance between two colours",
-      category: "Light study",
-      artist: artists[2],
+      artist: artists[7],
+      category: "AOYAMA NIGHT NOTE",
+      date: "2026.08.06",
+      title: "Three ways the city changes after the last train",
     },
     {
-      date: "02.08.26",
-      title: "Seven records for a room with one small window",
-      category: "Listening note",
-      artist: artists[1],
+      artist: artists[9],
+      category: "CAST INTERVIEW",
+      date: "2026.08.02",
+      title: "Hana talks colour, rhythm and the perfect late-night room",
     },
   ];
   return (
     <section className="journal-section" id="journal">
-      <div className="shell journal-heading">
-        <div>
-          <p className="kicker">Latest field notes</p>
-          <h2>The archive keeps moving.</h2>
+      <div className="site-width">
+        <SectionTitle
+          eyebrow="LATEST BLOG"
+          title="STORIES FROM TOKYO"
+          note="New interviews, visual notes and city guides from the directory."
+          light
+        />
+        <div className="journal-cards">
+          {stories.map((story) => (
+            <article key={story.title}>
+              <img src={portraitPath(story.artist.slug)} alt="" />
+              <div>
+                <span>{story.category}</span>
+                <time>{story.date}</time>
+                <h3>{story.title}</h3>
+                <Link href={`/profile/${story.artist.slug}`}>
+                  READ PROFILE
+                  <ArrowIcon />
+                </Link>
+              </div>
+            </article>
+          ))}
         </div>
-        <p>
-          Short fictional dispatches extend the directory into an editorial
-          world without introducing a real contact or transaction layer.
-        </p>
-      </div>
-      <div className="shell journal-grid">
-        {entries.map((entry, index) => (
-          <article key={entry.title}>
-            <AbstractArt artist={entry.artist} index={index + 3} variant="gallery" />
-            <div>
-              <span>
-                {entry.category} / {entry.date}
-              </span>
-              <h3>{entry.title}</h3>
-              <Link href={`/profile/${entry.artist.slug}`}>
-                Read the dossier
-                <ArrowIcon />
-              </Link>
-            </div>
-          </article>
-        ))}
       </div>
     </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="footer" id="contact" data-menu-underlay>
+      <section className="access-band" id="access">
+        <div className="site-width">
+          <div>
+            <span>01</span>
+            <b>AOYAMA</b>
+            <small>Editorial district</small>
+          </div>
+          <div>
+            <span>02</span>
+            <b>GINZA</b>
+            <small>Central directory</small>
+          </div>
+          <div>
+            <span>03</span>
+            <b>DAIKANYAMA</b>
+            <small>Creative district</small>
+          </div>
+        </div>
+      </section>
+      <div className="site-width footer-main">
+        <Brand />
+        <div className="footer-links">
+          <div>
+            <b>DIRECTORY</b>
+            <Link href="/#directory">All cast</Link>
+            <Link href="/#schedule">Schedule</Link>
+            <Link href="/#ranking">Ranking</Link>
+          </div>
+          <div id="faq">
+            <b>GUIDE</b>
+            <Link href="/#system">First guide</Link>
+            <Link href="/#reviews">Reviews</Link>
+            <Link href="/#journal">Blog</Link>
+          </div>
+          <div>
+            <b>INFORMATION</b>
+            <p>Fictional adult profiles</p>
+            <p>Editorial showcase</p>
+            <p>No booking or payment</p>
+          </div>
+        </div>
+      </div>
+      <div className="site-width footer-bottom">
+        <span>© 2026 NOCTURNE TOKYO</span>
+        <span>ALL PROFILES ARE FICTIONAL ADULTS AGED 21+</span>
+      </div>
+    </footer>
   );
 }
 
@@ -566,17 +839,50 @@ export function HomeExperience() {
   return (
     <>
       <AgeGate />
-      <Header />
-      <main>
-        <FeatureTiles />
-        <Hero />
-        <TonightStrip />
-        <Directory />
-        <Reviews />
-        <Journal />
-      </main>
-      <Footer />
+      <div data-site-content>
+        <Header />
+        <main data-menu-underlay>
+          <Hero />
+          <LiveTicker />
+          <NoticeBanner />
+          <Directory />
+          <Ranking />
+          <SystemGuide />
+          <Reviews />
+          <Journal />
+        </main>
+        <Footer />
+      </div>
     </>
+  );
+}
+
+function ProfilePhotoGallery({ artist }: { artist: Artist }) {
+  const [active, setActive] = useState(0);
+  const variants = ["", "is-pink", "is-warm", "is-mono"];
+  return (
+    <div className="profile-photo-gallery">
+      <div className={`profile-main-photo ${variants[active]}`}>
+        <img src={portraitPath(artist.slug)} alt={`${artist.name}, fictional adult profile`} />
+        <span className="profile-photo-label">PHOTO 0{active + 1}</span>
+      </div>
+      <div className="profile-thumbnails">
+        {variants.map((variant, index) => (
+          <button
+            type="button"
+            key={variant || "default"}
+            className={active === index ? "is-active" : ""}
+            onClick={() => setActive(index)}
+            aria-label={`Show profile photo ${index + 1}`}
+            aria-pressed={active === index}
+          >
+            <span className={variant}>
+              <img src={portraitPath(artist.slug)} alt="" />
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -594,199 +900,175 @@ function ProfileSchedule({ artist }: { artist: Artist }) {
   );
 }
 
-function ProfileGallery({ artist }: { artist: Artist }) {
-  const [active, setActive] = useState(0);
-  return (
-    <section className="profile-gallery" aria-labelledby="gallery-title">
-      <div className="profile-section-title">
-        <span>02</span>
-        <div>
-          <p className="kicker">Abstract studies</p>
-          <h2 id="gallery-title">Selected fragments</h2>
-        </div>
-      </div>
-      <div className="gallery-stage">
-        <AbstractArt artist={artist} index={active} variant="profile" />
-        <div className="gallery-caption">
-          <span>Study {String(active + 1).padStart(2, "0")}</span>
-          <p>
-            A generated colour composition representing texture, light, and
-            movement. No source photograph is used.
-          </p>
-        </div>
-      </div>
-      <div className="gallery-thumbs" aria-label="Select an abstract study">
-        {[0, 1, 2, 3].map((index) => (
-          <button
-            type="button"
-            key={index}
-            onClick={() => setActive(index)}
-            className={active === index ? "is-active" : ""}
-            aria-label={`Show study ${index + 1}`}
-            aria-pressed={active === index}
-          >
-            <AbstractArt artist={artist} index={index} variant="gallery" />
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ProfileJournal({ artist }: { artist: Artist }) {
-  return (
-    <section className="profile-journal" aria-labelledby="profile-journal-title">
-      <div className="profile-section-title">
-        <span>03</span>
-        <div>
-          <p className="kicker">Notebook</p>
-          <h2 id="profile-journal-title">Three studio entries</h2>
-        </div>
-      </div>
-      <div className="profile-entry-grid">
-        {[
-          ["06.08.26", "A room can be tuned like an instrument."],
-          ["01.08.26", "Colour arrives before the story does."],
-          ["24.07.26", "Keep one imperfect edge in every composition."],
-        ].map(([date, title], index) => (
-          <article key={date}>
-            <span>{date}</span>
-            <AbstractArt artist={artist} index={index + 2} variant="gallery" />
-            <h3>{title}</h3>
-            <p>
-              A fictional studio annotation written for the Nocturne interface
-              prototype.
-            </p>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ProfileReviews({ artist }: { artist: Artist }) {
-  return (
-    <section className="profile-reviews" aria-labelledby="profile-reviews-title">
-      <div className="profile-section-title">
-        <span>04</span>
-        <div>
-          <p className="kicker">Archive responses</p>
-          <h2 id="profile-reviews-title">Notes on {artist.name}&apos;s work</h2>
-        </div>
-      </div>
-      <div className="profile-review-list">
-        {testimonials.map((item, index) => (
-          <article key={item.source}>
-            <div>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <small>Verified prototype note</small>
-            </div>
-            <blockquote>{item.quote}</blockquote>
-            <p>{item.source}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export function ProfileExperience({ artist }: { artist: Artist }) {
-  const related = artists
-    .filter((candidate) => candidate.slug !== artist.slug)
-    .slice(0, 4);
+  const related = artists.filter((candidate) => candidate.slug !== artist.slug).slice(0, 4);
+
   return (
     <>
       <AgeGate />
-      <Header />
-      <main className="profile-main">
-        <div className="shell profile-breadcrumb">
-          <Link href="/">Index</Link>
-          <span>/</span>
-          <Link href="/#directory">Directory</Link>
-          <span>/</span>
-          <b>{artist.name}</b>
-        </div>
-        <section className="profile-hero">
-          <div className="shell profile-hero-grid">
-            <div className="profile-art-column">
-              <AbstractArt artist={artist} variant="profile" />
-              <div className="profile-thumb-row" aria-hidden="true">
-                {[0, 1, 2].map((index) => (
-                  <AbstractArt artist={artist} index={index + 1} variant="gallery" key={index} />
-                ))}
-              </div>
+      <div data-site-content>
+        <Header />
+        <main className="profile-page" data-menu-underlay>
+          <div className="profile-path">
+            <div className="site-width">
+              <Link href="/">HOME</Link>
+              <span>/</span>
+              <Link href="/#directory">CAST</Link>
+              <span>/</span>
+              <b>{artist.name.toUpperCase()}</b>
             </div>
-            <div className="profile-copy-column">
-              <p className="kicker">
-                N° {String(artists.indexOf(artist) + 1).padStart(2, "0")} /{" "}
-                {artist.district}
-              </p>
-              <h1>{artist.name}</h1>
-              <p className="profile-role">{artist.role}</p>
-              <p className="profile-intro">{artist.biography}</p>
-              <div className="profile-tags">
-                {artist.disciplines.map((discipline) => (
-                  <span key={discipline}>{discipline}</span>
-                ))}
-              </div>
-              <div className="profile-stats">
-                {artist.stats.map((stat) => (
-                  <div key={stat.label}>
-                    <span>{stat.label}</span>
-                    <b>{stat.value}</b>
-                  </div>
-                ))}
-              </div>
-              <div className="profile-note">
-                <span className="pulse" />
-                <div>
-                  <b>{artist.status} in the editorial index</b>
-                  <p>Informational status only. This demo has no booking path.</p>
+          </div>
+
+          <section className="profile-intro-section">
+            <div className="site-width profile-card-shell">
+              <ProfilePhotoGallery artist={artist} />
+              <div className="profile-details">
+                <div className="profile-heading">
+                  <span>N° {String(artists.indexOf(artist) + 1).padStart(2, "0")}</span>
+                  <em>{artist.status}</em>
+                  <h1>{artist.name}</h1>
+                  <p>{artist.role}</p>
                 </div>
+                <div className="profile-message">
+                  <b>CAST MESSAGE</b>
+                  <p>{artist.biography}</p>
+                </div>
+                <div className="profile-stat-grid">
+                  {artist.stats.map((stat) => (
+                    <div key={stat.label}>
+                      <span>{stat.label}</span>
+                      <b>{stat.value}</b>
+                    </div>
+                  ))}
+                </div>
+                <div className="profile-meta-list">
+                  <div>
+                    <span>AREA</span>
+                    <b>{artist.district}</b>
+                  </div>
+                  <div>
+                    <span>LANGUAGE</span>
+                    <b>{artist.languages.join(" / ")}</b>
+                  </div>
+                  <div>
+                    <span>STYLE</span>
+                    <b>{artist.disciplines.join(" / ")}</b>
+                  </div>
+                </div>
+                <Link className="profile-back-button" href="/#directory">
+                  RETURN TO CAST DIRECTORY
+                  <ArrowIcon />
+                </Link>
               </div>
-              <Link className="button button-dark profile-return" href="/#directory">
-                Return to directory
-                <ArrowIcon />
-              </Link>
             </div>
-          </div>
-        </section>
-        <section className="profile-information shell">
-          <div className="profile-section-title">
-            <span>01</span>
-            <div>
-              <p className="kicker">Five-day editorial rhythm</p>
-              <h2>Current studio index</h2>
-            </div>
-          </div>
-          <ProfileSchedule artist={artist} />
-          <div className="profile-quote">
-            <span>“</span>
-            <p>{artist.shortNote}</p>
-          </div>
-        </section>
-        <div className="shell profile-content-stack">
-          <ProfileGallery artist={artist} />
-          <ProfileJournal artist={artist} />
-          <ProfileReviews artist={artist} />
-        </div>
-        <section className="related-section">
-          <div className="shell section-rule-heading">
-            <p className="kicker">Continue through the index</p>
-            <h2>Four adjacent dossiers.</h2>
-          </div>
-          <div className="shell artist-grid related-grid">
-            {related.map((candidate) => (
-              <ArtistCard
-                artist={candidate}
-                index={artists.indexOf(candidate)}
-                key={candidate.slug}
+          </section>
+
+          <section className="profile-schedule-section">
+            <div className="site-width">
+              <SectionTitle
+                eyebrow="WEEKLY SCHEDULE"
+                title={`${artist.name.toUpperCase()}'S CURRENT INDEX`}
+                note="Editorial availability labels for the current five-day directory cycle."
+                light
               />
-            ))}
-          </div>
-        </section>
-      </main>
-      <Footer />
+              <ProfileSchedule artist={artist} />
+            </div>
+          </section>
+
+          <section className="profile-content">
+            <div className="site-width">
+              <section className="profile-gallery-section">
+                <div className="profile-block-heading">
+                  <span>PHOTO GALLERY</span>
+                  <h2>LATEST PHOTO UPDATES</h2>
+                </div>
+                <div className="profile-gallery-grid">
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <div
+                      className={
+                        index % 3 === 1 ? "is-pink" : index % 3 === 2 ? "is-warm" : ""
+                      }
+                      key={index}
+                    >
+                      <img src={portraitPath(artist.slug)} alt="" />
+                      <span>UPDATE 0{index + 1}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="profile-blog-section">
+                <div className="profile-block-heading">
+                  <span>LATEST BLOG</span>
+                  <h2>NOTES FROM {artist.name.toUpperCase()}</h2>
+                </div>
+                <div className="profile-blog-grid">
+                  {[0, 1].map((index) => (
+                    <article key={index}>
+                      <img
+                        className={index === 1 ? "is-pink" : ""}
+                        src={portraitPath(artist.slug)}
+                        alt=""
+                      />
+                      <div>
+                        <time>2026.08.0{6 - index}</time>
+                        <h3>
+                          {index === 0
+                            ? "A quick note before tonight"
+                            : "Three details I always notice in Tokyo"}
+                        </h3>
+                        <p>
+                          A short editorial update from the Nocturne archive,
+                          collecting colour, music and city observations.
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="profile-review-section">
+                <div className="profile-block-heading">
+                  <span>PROFILE REVIEWS</span>
+                  <h2>READER NOTES</h2>
+                </div>
+                <div className="profile-review-list">
+                  {reviews.slice(0, 5).map((review, index) => (
+                    <article key={review.title}>
+                      <div>
+                        <b>0{index + 1}</b>
+                        <span>{review.date}</span>
+                      </div>
+                      <h3>{review.title}</h3>
+                      <p>{review.body}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section className="related-section">
+            <div className="site-width">
+              <SectionTitle
+                eyebrow="RELATED CAST"
+                title="MORE PROFILES TO EXPLORE"
+                light
+              />
+              <div className="cast-grid">
+                {related.map((candidate) => (
+                  <ArtistCard
+                    artist={candidate}
+                    index={artists.indexOf(candidate)}
+                    key={candidate.slug}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
     </>
   );
 }

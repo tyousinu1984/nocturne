@@ -2,81 +2,91 @@
 
 ## Confirmed source archetype
 
-The public reference is a long-form adult companionship directory rather than a
-video catalogue. Its home route uses a dark branded masthead, five prominent
-entry tiles, a ten-item horizontal navigation bar, a wide carousel, a status
-ticker, a dense four-column profile directory, reviews, journal content,
-location information, payment promotion and an extensive footer.
+The public reference is a long-form Japanese adult companionship directory. Its
+home route uses a black service masthead, five image entry tiles, a ten-item
+horizontal navigation bar, a wide image carousel, an online-status strip, a
+dense four-column cast directory, ranking, reviews, editorial content,
+location information and an extensive footer.
 
 Its public profile route uses a light dossier surface with a large image
 carousel, profile information, statistics, schedule, gallery, journal entries,
-long-form reviews, a review form and a large footer.
+long-form reviews and supporting content.
 
 ## Original product identity
 
-- Name: `Nocturne`
-- Positioning: fictional adults-only artist directory and editorial study
-- Voice: concise, editorial, private, restrained
-- Palette: ink black, warm ivory, ultraviolet, rose and mint accents
-- Media: abstract CSS-generated compositions with no source photography
+- Name: `NOCTURNE TOKYO`
+- Positioning: fictional adults-only cast directory and editorial showcase
+- Voice: direct, energetic, compact and metropolitan
+- Palette: black, white, hot pink, orange, gold and silver
+- Typography: heavy condensed sans-serif with compact utility text
+- Media: original AI-generated portraits of clearly adult, fully clothed
+  fictional women
 
-## Implemented routes
-
-### `/`
+## Implemented home route
 
 - Accessible 21+ confirmation dialog
-- Branded masthead and sticky primary navigation
-- Five editorial entry tiles
-- Wide abstract hero composition
-- Animated status ticker with reduced-motion fallback
-- Search, district filters and local status filters
-- Dense four-column desktop directory with controlled reveal
-- Two-column responsive mobile directory without horizontal page overflow
-- Review and editorial journal sections
-- Safety and provenance disclosure in the footer
+- Original masthead and utility status
+- Five equal portrait-led entry tiles
+- Ten-item desktop navigation and ten-link mobile drawer
+- 400px wide four-person lineup hero
+- Animated online-status ticker with reduced-motion fallback
+- Pink and orange daily update banner
+- Search, district filters and editorial status filters
+- Dense four-column desktop directory with twelve fictional profiles
+- Controlled reveal from eight to twelve cards
+- Two-column mobile directory without document overflow
+- Five-profile ranking
+- Three-step first guide
+- Two-column review region
+- Dark two-story editorial journal
+- Three-district information band and dense footer
 
-### `/profile/[slug]`
+## Implemented profile route
 
-- Breadcrumb and large abstract profile composition
-- Biography, local tags, statistics and non-transactional status note
-- Five-day editorial schedule
-- Interactive abstract gallery
-- Studio notes and prototype review sections
-- Related-profile directory
+- Breadcrumb and light 1200px dossier card
+- Large portrait, four interactive thumbnail treatments and profile index
+- Biography, statistics and local metadata
+- Five-day dark schedule strip
+- Six-image light gallery
+- Two journal entries
+- Five review notes
+- Four related profile cards
 
-## Responsive behavior
+## Reference-aligned geometry
 
-- Desktop: four-column directory, persistent horizontal navigation, split
-  profile hero
-- Tablet: three-column directory, wrapped filters, compressed navigation
-- Mobile: two-column directory, drawer navigation, stacked profile hero and
-  horizontally scrollable schedule
-- Improvement over source: mobile document width stays equal to viewport width
+- Desktop service region: 350px before navigation
+- Entry rail: five tiles at approximately 189×228px
+- Desktop navigation: ten items in a 65px region
+- Hero: 400px
+- Directory: four 291px columns at a 1280px viewport
+- Directory card: approximately 291×550px
+- Profile dossier: 1200px wide
+- Mobile: two 183px cards at a 390px viewport
 
 ## Interaction states
 
 - Age gate open, accepted and declined
-- Search idle, focused, filtered and empty result
+- Search idle, focused, filtered and empty
 - District and status selection
 - Mobile menu open and closed
-- Card hover, focus and active
-- Reveal-more complete
+- Card hover, focus and active states
+- Reveal-more from eight to twelve profiles
 - Gallery selection
 - Reduced-motion mode
 
 ## Rights and safety substitutions
 
-- All names, copy, taxonomy and artwork are newly authored.
+- All names, copy, taxonomy, portraits and identity assets are newly authored.
 - No source media URL, thumbnail, logo, font, code or private response is used.
+- Every represented person is a fictional adult and fully clothed.
 - Booking, payment, messaging, phone, address and review submission are absent.
-- All profiles are explicitly fictional adults aged 21 or older.
-- Explicit imagery is excluded from source artifacts and output.
+- The footer and age gate disclose the fictional, non-transactional scope.
 
 ## Implementation stack
 
 - React 19
 - TypeScript
 - Vinext
-- Local static data
-- CSS-generated artwork
+- Local static profile data
+- Local generated portrait assets
 - No external runtime API

@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-
 async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
@@ -31,12 +28,17 @@ test("server-renders the Nocturne catalogue", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
-  assert.match(html, /<title>Tokyo after dark \| Nocturne<\/title>/i);
-  assert.match(html, /The night has/);
-  assert.match(html, /Choose a frequency/);
-  assert.match(html, /Adults-only interface study/);
-  assert.match(html, /No booking, payment, messaging/);
+  assert.doesNotMatch(html, /codex-preview/i);
+  assert.match(html, /<title>Cast Directory \| NOCTURNE TOKYO<\/title>/i);
+  assert.match(html, /TONIGHT/);
+  assert.match(html, /MEET THE NOCTURNE LINEUP/);
+  assert.match(html, /12 CAST PROFILES ARE NOW LIVE/);
+  assert.match(html, /No booking, payment or contact service is provided/);
+  assert.match(html, /aria-modal="true"/);
+  assert.match(
+    html,
+    /id="mobile-menu"[^>]*aria-hidden="true"[^>]*inert/i,
+  );
   assert.doesNotMatch(html, /hentaitokyo/i);
 });
 
@@ -45,9 +47,9 @@ test("server-renders a fictional profile route", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
 
-  assert.match(html, /Aika dossier/);
+  assert.match(html, /Aika Profile/);
   assert.match(html, /Movement artist/);
-  assert.match(html, /Current studio index/);
-  assert.match(html, /This demo has no booking path/);
+  assert.match(html, /AIKA&#x27;S CURRENT INDEX/);
+  assert.match(html, /RETURN TO CAST DIRECTORY/);
   assert.doesNotMatch(html, /https:\/\/hentaitokyo\.com/i);
 });
