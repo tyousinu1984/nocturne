@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s | NOCTURNE TOKYO",
   },
   description:
-    "A high-density Tokyo night directory featuring original fictional adult profiles, schedules, journals and editorial updates.",
+    "A high-density Tokyo night directory featuring editorial profiles, schedules, journals and visual updates.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     siteName: "NOCTURNE TOKYO",
     title: "NOCTURNE TOKYO | Cast Directory",
     description:
-      "Explore original fictional adult profiles, schedules and Tokyo night editorial updates.",
+      "Explore editorial profiles, schedules and Tokyo night visual updates.",
     images: [
       {
         url: "/og.png",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "NOCTURNE TOKYO | Cast Directory",
     description:
-      "Explore original fictional adult profiles, schedules and Tokyo night editorial updates.",
+      "Explore editorial profiles, schedules and Tokyo night visual updates.",
     images: ["/og.png"],
   },
 };

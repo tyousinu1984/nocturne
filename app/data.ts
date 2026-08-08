@@ -26,7 +26,7 @@ export const artists: Artist[] = [
     role: "Movement artist",
     shortNote: "Velvet rhythm, quiet wit, and a fondness for midnight jazz.",
     biography:
-      "Aika is a fictional multidisciplinary performer whose practice moves between contemporary dance, vinyl listening sessions, and intimate editorial portraiture. Her dossier is presented as a product-design demo and does not represent a real person or service.",
+      "Aika is a temporary profile name used to preview the supplied photography inside this interface. The role and description are placeholder editorial copy; no booking or contact function is provided.",
     languages: ["Japanese", "English"],
     disciplines: ["Dance", "Jazz", "Editorial"],
     palette: ["#f39aac", "#5c2942", "#171017"],
@@ -54,7 +54,7 @@ export const artists: Artist[] = [
     role: "Sound curator",
     shortNote: "Analogue selections shaped for rain, neon, and late trains.",
     biography:
-      "Ren builds fictional listening-room programs from city pop, ambient records, and field recordings. This profile is an original interface specimen with no booking or contact function.",
+      "Ren is a temporary profile name used to preview the supplied photography inside this interface. The role and description are placeholder editorial copy; no booking or contact function is provided.",
     languages: ["Japanese", "Korean"],
     disciplines: ["Vinyl", "Ambient", "Curation"],
     palette: ["#7fc4bf", "#1f5a63", "#101b24"],
@@ -82,7 +82,7 @@ export const artists: Artist[] = [
     role: "Light designer",
     shortNote: "Soft prisms, sharp silhouettes, and precise visual timing.",
     biography:
-      "Mio develops fictional light studies for small rooms and experimental stages. Her profile uses an original studio portrait and contains no real-world service information.",
+      "Mio is a temporary profile name used to preview the supplied photography inside this interface. The role and description are placeholder editorial copy; no booking or contact function is provided.",
     languages: ["Japanese", "English"],
     disciplines: ["Lighting", "Installation", "Film"],
     palette: ["#ff2f91", "#ff8500", "#171717"],
@@ -110,7 +110,7 @@ export const artists: Artist[] = [
     role: "Editorial host",
     shortNote: "Conversation, cinema, and impeccably chosen small details.",
     biography:
-      "Sora hosts fictional culture salons devoted to independent cinema and visual criticism. All information is fabricated for this local interface prototype.",
+      "Sora is a temporary profile name used to preview the supplied photography inside this interface. The role and description are placeholder editorial copy; no booking or contact function is provided.",
     languages: ["Japanese", "French"],
     disciplines: ["Cinema", "Conversation", "Writing"],
     palette: ["#f2ca78", "#8f5b2f", "#24170f"],
@@ -138,7 +138,7 @@ export const artists: Artist[] = [
     role: "Fashion archivist",
     shortNote: "Rare silhouettes translated into modern, tactile stories.",
     biography:
-      "Yuna is a fictional fashion archivist exploring textiles, memory, and Tokyo night culture. No real person, inventory, or commercial offer is represented.",
+      "Yuna is a temporary profile name used to preview the supplied photography inside this interface. The role and description are placeholder editorial copy; no booking or contact function is provided.",
     languages: ["Japanese", "English"],
     disciplines: ["Fashion", "Archive", "Textile"],
     palette: ["#ff9188", "#9b3e4b", "#251016"],
@@ -166,7 +166,7 @@ export const artists: Artist[] = [
     role: "Image maker",
     shortNote: "Grain, reflections, and fragments gathered after midnight.",
     biography:
-      "Kei creates fictional photographic essays from reflections and abstract architecture. Every portrait in this directory was created as an original fictional adult character.",
+      "Kei is a temporary profile name used to preview the supplied photography inside this interface. The role and description are placeholder editorial copy; no booking or contact function is provided.",
     languages: ["Japanese", "English"],
     disciplines: ["Photography", "Print", "Architecture"],
     palette: ["#7ba9ff", "#345184", "#111827"],
@@ -194,7 +194,7 @@ export const artists: Artist[] = [
     role: "Performance poet",
     shortNote: "A low voice, exact language, and rooms held in complete focus.",
     biography:
-      "Nami is a fictional performance poet whose work studies pauses, repetition, and the emotional geometry of rooms. This is original prototype copy.",
+      "Nami is a temporary profile name used to preview the supplied photography inside this interface. The role and description are placeholder editorial copy; no booking or contact function is provided.",
     languages: ["Japanese", "English"],
     disciplines: ["Poetry", "Voice", "Performance"],
     palette: ["#ff2f91", "#c1125a", "#171717"],
@@ -355,7 +355,7 @@ export const artists: Artist[] = [
 ];
 
 export const featureTiles = [
-  { eyebrow: "01", title: "The artists", note: "Twelve fictional dossiers" },
+  { eyebrow: "01", title: "The artists", note: "Twelve editorial dossiers" },
   { eyebrow: "02", title: "Tonight", note: "A live editorial index" },
   { eyebrow: "03", title: "The districts", note: "Three nocturnal chapters" },
   { eyebrow: "04", title: "Field notes", note: "Stories from the archive" },
@@ -375,7 +375,7 @@ export const testimonials = [
   },
   {
     quote:
-      "The absence of literal photography makes the interface feel more authored.",
+      "The cast photography makes the interface feel immediate without losing its editorial structure.",
     source: "Prototype review 03",
   },
   {

@@ -33,6 +33,8 @@ test("server-renders the Nocturne catalogue", async () => {
   assert.match(html, /TONIGHT/);
   assert.match(html, /MEET THE NOCTURNE LINEUP/);
   assert.match(html, /12 CAST PROFILES ARE NOW LIVE/);
+  assert.match(html, /\/photos-preview\/aika-01\.jpg/);
+  assert.match(html, /\/photos-preview\/yuna-01\.jpg/);
   assert.match(html, /No booking, payment or contact service is provided/);
   assert.match(html, /aria-modal="true"/);
   assert.match(
@@ -50,6 +52,8 @@ test("server-renders a fictional profile route", async () => {
   assert.match(html, /Aika Profile/);
   assert.match(html, /Movement artist/);
   assert.match(html, /AIKA&#x27;S CURRENT INDEX/);
+  assert.match(html, /\/photos-preview\/aika-01\.jpg/);
+  assert.match(html, /\/photos-preview\/aika-02\.jpg/);
   assert.match(html, /RETURN TO CAST DIRECTORY/);
   assert.doesNotMatch(html, /https:\/\/hentaitokyo\.com/i);
 });

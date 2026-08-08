@@ -104,8 +104,50 @@ function MenuIcon({ open }: { open: boolean }) {
   );
 }
 
+const previewPhotoSets: Record<string, string[]> = {
+  aika: [
+    "/photos-preview/aika-01.jpg",
+    "/photos-preview/aika-02.jpg",
+    "/photos-preview/aika-03.jpg",
+  ],
+  ren: [
+    "/photos-preview/ren-01.jpg",
+    "/photos-preview/ren-02.jpg",
+    "/photos-preview/ren-03.jpg",
+  ],
+  mio: ["/photos-preview/mio-01.jpg"],
+  sora: ["/photos-preview/sora-01.jpg", "/photos-preview/sora-02.jpg"],
+  yuna: [
+    "/photos-preview/yuna-01.jpg",
+    "/photos-preview/yuna-02.jpg",
+    "/photos-preview/yuna-03.jpg",
+    "/photos-preview/yuna-04.jpg",
+    "/photos-preview/yuna-05.jpg",
+  ],
+  kei: [
+    "/photos-preview/kei-01.jpg",
+    "/photos-preview/kei-02.jpg",
+    "/photos-preview/kei-03.jpg",
+  ],
+  nami: [
+    "/photos-preview/nami-01.jpg",
+    "/photos-preview/nami-02.jpg",
+    "/photos-preview/nami-03.jpg",
+    "/photos-preview/nami-04.jpg",
+  ],
+};
+
+function artistPhotos(slug: string) {
+  return previewPhotoSets[slug] ?? [`/portraits/${slug}.jpg`];
+}
+
 function portraitPath(slug: string) {
-  return `/portraits/${slug}.jpg`;
+  return artistPhotos(slug)[0];
+}
+
+function artistPhotoPath(slug: string, index: number) {
+  const photos = artistPhotos(slug);
+  return photos[index % photos.length];
 }
 
 function AgeGate() {
@@ -210,7 +252,7 @@ function AgeGate() {
           <>
             <h2 id="gate-title">WELCOME TO NOCTURNE TOKYO</h2>
             <p id="gate-copy">
-              This editorial directory contains fictional adult profiles. Please
+              This editorial directory is an adults-only visual preview. Please
               confirm that you are 21 years of age or older.
             </p>
             <div className="gate-actions">
@@ -225,7 +267,8 @@ function AgeGate() {
           </>
         )}
         <p className="gate-note">
-          All profiles are fictional adults. No booking, payment or contact service is provided.
+          Profile names and descriptions are temporary preview copy. No booking,
+          payment or contact service is provided.
         </p>
       </div>
     </div>
@@ -397,13 +440,19 @@ function Header() {
 }
 
 function Hero() {
+  const heroArtists = ["ren", "mio", "sora", "yuna"];
+
   return (
     <section className="home-hero">
-      <img
-        className="hero-lineup"
-        src="/portraits/hero-lineup.jpg"
-        alt="Four fictional adult performers from the Nocturne directory"
-      />
+      <div
+        className="hero-lineup hero-photo-grid"
+        role="img"
+        aria-label="Four adult performers from the Nocturne directory"
+      >
+        {heroArtists.map((slug) => (
+          <img src={portraitPath(slug)} alt="" key={slug} />
+        ))}
+      </div>
       <span className="hero-darken" />
       <div className="site-width hero-content">
         <p className="hero-kicker">TOKYO / AOYAMA / GINZA / DAIKANYAMA</p>
@@ -413,8 +462,8 @@ function Hero() {
           <em>CAST FILE</em>
         </h1>
         <p className="hero-description">
-          Meet the latest fictional adult performers, creators and hosts featured
-          in the Nocturne Tokyo editorial directory.
+          Meet the latest performers, creators and hosts featured in the
+          Nocturne Tokyo editorial directory.
         </p>
         <a href="#directory" className="hero-button">
           VIEW ALL CAST
@@ -505,7 +554,7 @@ function ArtistCard({ artist, index }: { artist: Artist; index: number }) {
   return (
     <article className="cast-card">
       <Link className="cast-photo" href={`/profile/${artist.slug}`}>
-        <img src={portraitPath(artist.slug)} alt={`${artist.name}, fictional adult profile`} />
+        <img src={portraitPath(artist.slug)} alt={`${artist.name}, profile portrait`} />
         <span className="language-chip">{artist.languages.join(" / ")}</span>
         <span className="cast-id">N° {String(index + 1).padStart(2, "0")}</span>
         <span className={`cast-location is-${locationClass}`}>{artist.district}</span>
@@ -565,7 +614,7 @@ function Directory() {
         <SectionTitle
           eyebrow="CAST DIRECTORY"
           title="MEET THE NOCTURNE LINEUP"
-          note="Browse every fictional adult profile by district, activity and editorial status."
+          note="Browse every editorial profile by district, activity and current status."
         />
 
         <div className="directory-toolbar" id="districts">
@@ -833,7 +882,7 @@ function Footer() {
           </div>
           <div>
             <b>INFORMATION</b>
-            <p>Fictional adult profiles</p>
+            <p>Temporary profile copy</p>
             <p>Editorial showcase</p>
             <p>No booking or payment</p>
           </div>
@@ -841,7 +890,7 @@ function Footer() {
       </div>
       <div className="site-width footer-bottom">
         <span>© 2026 NOCTURNE TOKYO</span>
-        <span>ALL PROFILES ARE FICTIONAL ADULTS AGED 21+</span>
+        <span>ADULTS-ONLY VISUAL PREVIEW / TEMPORARY PROFILE COPY</span>
       </div>
     </footer>
   );
@@ -871,25 +920,31 @@ export function HomeExperience() {
 
 function ProfilePhotoGallery({ artist }: { artist: Artist }) {
   const [active, setActive] = useState(0);
-  const variants = ["", "is-pink", "is-warm", "is-mono"];
+  const photos = artistPhotos(artist.slug);
+  const thumbnailPhotos =
+    photos.length === 1 ? [photos[0], photos[0], photos[0], photos[0]] : photos;
+
   return (
     <div className="profile-photo-gallery">
-      <div className={`profile-main-photo ${variants[active]}`}>
-        <img src={portraitPath(artist.slug)} alt={`${artist.name}, fictional adult profile`} />
+      <div className="profile-main-photo">
+        <img
+          src={thumbnailPhotos[active]}
+          alt={`${artist.name}, profile portrait ${active + 1}`}
+        />
         <span className="profile-photo-label">PHOTO 0{active + 1}</span>
       </div>
       <div className="profile-thumbnails">
-        {variants.map((variant, index) => (
+        {thumbnailPhotos.map((photo, index) => (
           <button
             type="button"
-            key={variant || "default"}
+            key={`${photo}-${index}`}
             className={active === index ? "is-active" : ""}
             onClick={() => setActive(index)}
             aria-label={`Show profile photo ${index + 1}`}
             aria-pressed={active === index}
           >
-            <span className={variant}>
-              <img src={portraitPath(artist.slug)} alt="" />
+            <span>
+              <img src={photo} alt="" />
             </span>
           </button>
         ))}
@@ -936,7 +991,12 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
               <ProfilePhotoGallery artist={artist} />
               <div className="profile-details">
                 <div className="profile-heading">
-                  <span>N° {String(artists.indexOf(artist) + 1).padStart(2, "0")}</span>
+                  <span>
+                    N°{" "}
+                    {String(
+                      artists.findIndex((candidate) => candidate.slug === artist.slug) + 1,
+                    ).padStart(2, "0")}
+                  </span>
                   <em>{artist.status}</em>
                   <h1>{artist.name}</h1>
                   <p>{artist.role}</p>
@@ -996,13 +1056,8 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
                 </div>
                 <div className="profile-gallery-grid">
                   {[0, 1, 2, 3, 4, 5].map((index) => (
-                    <div
-                      className={
-                        index % 3 === 1 ? "is-pink" : index % 3 === 2 ? "is-warm" : ""
-                      }
-                      key={index}
-                    >
-                      <img src={portraitPath(artist.slug)} alt="" />
+                    <div key={index}>
+                      <img src={artistPhotoPath(artist.slug, index)} alt="" />
                       <span>UPDATE 0{index + 1}</span>
                     </div>
                   ))}
@@ -1018,8 +1073,7 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
                   {[0, 1].map((index) => (
                     <article key={index}>
                       <img
-                        className={index === 1 ? "is-pink" : ""}
-                        src={portraitPath(artist.slug)}
+                        src={artistPhotoPath(artist.slug, index + 1)}
                         alt=""
                       />
                       <div>
