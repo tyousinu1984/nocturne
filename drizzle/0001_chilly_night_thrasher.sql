@@ -1,0 +1,1 @@
+ALTER TABLE `attendance_events` ADD `result_snapshot` text NOT NULL;

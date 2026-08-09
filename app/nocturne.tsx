@@ -954,6 +954,127 @@ function ProfilePhotoGallery({ artist }: { artist: Artist }) {
 }
 
 function ProfileSchedule({ artist }: { artist: Artist }) {
+  type PublicAttendanceEntry = {
+    id: string;
+    artistSlug: string;
+    serviceDate: string;
+    startTime: string;
+    endTime: string;
+  };
+  type ScheduleState =
+    | { kind: "loading"; artistSlug: string }
+    | { kind: "unavailable"; artistSlug: string }
+    | {
+        kind: "ready";
+        artistSlug: string;
+        managed: boolean;
+        entries: PublicAttendanceEntry[];
+      };
+
+  const [scheduleState, setScheduleState] = useState<ScheduleState>({
+    kind: "loading",
+    artistSlug: artist.slug,
+  });
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadPublishedAttendance() {
+      try {
+        const response = await fetch(
+          `/api/public/attendance?artist=${encodeURIComponent(artist.slug)}`,
+          {
+            cache: "no-store",
+            headers: { accept: "application/json" },
+            signal: controller.signal,
+          },
+        );
+        const payload = (await response.json()) as {
+          availability?: "ready" | "unavailable";
+          managed?: boolean;
+          entries?: PublicAttendanceEntry[];
+        };
+        if (
+          !response.ok ||
+          payload.availability !== "ready" ||
+          typeof payload.managed !== "boolean" ||
+          !Array.isArray(payload.entries)
+        ) {
+          setScheduleState({ kind: "unavailable", artistSlug: artist.slug });
+          return;
+        }
+        setScheduleState({
+          kind: "ready",
+          artistSlug: artist.slug,
+          managed: payload.managed,
+          entries: payload.entries,
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setScheduleState({ kind: "unavailable", artistSlug: artist.slug });
+      }
+    }
+
+    void loadPublishedAttendance();
+    return () => controller.abort();
+  }, [artist.slug]);
+
+  if (
+    scheduleState.kind === "loading" ||
+    scheduleState.artistSlug !== artist.slug
+  ) {
+    return (
+      <div className="profile-schedule-empty" role="status" aria-live="polite">
+        <b>CHECKING ATTENDANCE</b>
+        <span>The current schedule is loading.</span>
+      </div>
+    );
+  }
+
+  if (scheduleState.kind === "unavailable") {
+    return (
+      <div className="profile-schedule-empty is-unavailable" role="status">
+        <b>ATTENDANCE TEMPORARILY UNAVAILABLE</b>
+        <span>Please check again before planning a visit.</span>
+      </div>
+    );
+  }
+
+  if (scheduleState.managed && scheduleState.entries.length === 0) {
+    return (
+      <div className="profile-schedule-empty" role="status">
+        <b>NO PUBLISHED SHIFTS</b>
+        <span>The operations schedule currently has no public attendance.</span>
+      </div>
+    );
+  }
+
+  if (scheduleState.managed) {
+    return (
+      <div className="profile-schedule is-managed">
+        {scheduleState.entries.map((item) => {
+          const date = new Date(`${item.serviceDate}T00:00:00+09:00`);
+          return (
+            <div key={item.id}>
+              <span>
+                {new Intl.DateTimeFormat("en-US", {
+                  weekday: "short",
+                  timeZone: "Asia/Tokyo",
+                })
+                  .format(date)
+                  .toUpperCase()}
+              </span>
+              <b>{item.serviceDate.slice(-2)}</b>
+              <small>
+                {item.startTime}–{item.endTime}
+              </small>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="profile-schedule">
       {artist.schedule.map((item) => (

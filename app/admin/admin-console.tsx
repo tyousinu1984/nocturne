@@ -1,9 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { artists } from "../data";
+import { AttendancePanel } from "./attendance-panel";
 import {
   canApproveRevision,
   canEditDraft,
@@ -19,7 +20,12 @@ import {
   type RevisionStatus,
 } from "./workflow";
 
-type AdminView = "queue" | "content" | "release" | "governance";
+type AdminView =
+  | "queue"
+  | "attendance"
+  | "content"
+  | "release"
+  | "governance";
 type ProbeRole = "editor" | "reviewer";
 
 type AuditEntry = {
@@ -36,11 +42,17 @@ const navItems: Array<{
   hint: string;
 }> = [
   { id: "queue", number: "01", label: "WORK QUEUE", hint: "What needs action" },
-  { id: "content", number: "02", label: "CAST & MEDIA", hint: "Edit one profile" },
-  { id: "release", number: "03", label: "RELEASE", hint: "Preview and publish" },
+  {
+    id: "attendance",
+    number: "02",
+    label: "ATTENDANCE",
+    hint: "Schedule and publish",
+  },
+  { id: "content", number: "03", label: "CAST & MEDIA", hint: "Edit one profile" },
+  { id: "release", number: "04", label: "RELEASE", hint: "Preview and publish" },
   {
     id: "governance",
-    number: "04",
+    number: "05",
     label: "GOVERNANCE",
     hint: "Rights and session log",
   },
@@ -105,7 +117,14 @@ function nowLabel() {
   }).format(new Date());
 }
 
-export function AdminConsole() {
+export function AdminConsole({
+  adminUser,
+}: {
+  adminUser: {
+    displayName: string;
+    identityLabel: string;
+  };
+}) {
   const yuna = artists.find((artist) => artist.slug === "yuna") ?? artists[0];
   const baselineSnapshot: ProfileSnapshot = {
     revisionId: "04",
@@ -139,8 +158,9 @@ export function AdminConsole() {
   const [auditEntries, setAuditEntries] =
     useState<AuditEntry[]>(initialAudit);
   const [notice, setNotice] = useState(
-    "Development probe only. Production writes are disabled and session data resets on refresh.",
+    "Authenticated development console. Attendance writes use isolated D1; profile revision data still resets on refresh.",
   );
+  const [attendanceLabel, setAttendanceLabel] = useState("D1 READY");
 
   const actor = probeActors[role];
   const isDraftEditable = canEditDraft(revisionStatus, actor.id);
@@ -153,9 +173,19 @@ export function AdminConsole() {
   };
 
   const bannerLabel =
-    revisionStatus !== "approved" || publicationStatus === "baseline-live"
-      ? revisionStatusCopy[revisionStatus]
-      : publicationStatusCopy[publicationStatus];
+    activeView === "attendance"
+      ? attendanceLabel
+      : revisionStatus !== "approved" || publicationStatus === "baseline-live"
+        ? revisionStatusCopy[revisionStatus]
+        : publicationStatusCopy[publicationStatus];
+
+  const handleAttendanceNotice = useCallback(
+    (label: string, message: string) => {
+      setAttendanceLabel(label);
+      setNotice(message);
+    },
+    [],
+  );
 
   const approvalAllowed = canApproveRevision({
     actorId: actor.id,
@@ -380,12 +410,12 @@ export function AdminConsole() {
         <Link href="/" className="ops-brand">
           <strong>NOCTURNE</strong>
           <span>OPS</span>
-          <small>CONTENT CONTROL PROBE</small>
+          <small>AUTHORIZED OPERATIONS ALPHA</small>
         </Link>
 
         <div className="ops-environment">
           <i />
-          DEVELOPMENT ONLY
+          ISOLATED DEVELOPMENT
         </div>
 
         <nav aria-label="Operations sections">
@@ -405,10 +435,10 @@ export function AdminConsole() {
         </nav>
 
         <div className="ops-sidebar-note">
-          <b>PROBE BOUNDARY</b>
+          <b>ALPHA BOUNDARY</b>
           <p>
-            One editor, one reviewer, one profile, three supplied photos and one
-            rollback path.
+            One owner allowlist, one cast profile, one attendance date and one
+            anonymous public projection.
           </p>
         </div>
       </aside>
@@ -419,28 +449,36 @@ export function AdminConsole() {
             <span>NOCTURNE TOKYO / INTERNAL OPERATIONS</span>
             <h1>{navItems.find((item) => item.id === activeView)?.label}</h1>
           </div>
-          <label className="ops-role-switcher">
-            <span>SIMULATED ROLE</span>
-            <select
-              aria-label="SIMULATED ROLE"
-              value={role}
-              onChange={(event) => {
-                const nextRole = event.target.value as ProbeRole;
-                setRole(nextRole);
-                setNotice(
-                  `Simulated identity changed to ${probeActors[nextRole].id}.`,
-                );
-              }}
-            >
-              <option value="editor">Content Editor / editor-01</option>
-              <option value="reviewer">
-                Operations Reviewer / reviewer-01
-              </option>
-            </select>
-            <small>
-              {actor.id} / {actor.scope}
-            </small>
-          </label>
+          {activeView === "attendance" ? (
+            <div className="ops-role-switcher ops-authenticated-user">
+              <span>AUTHENTICATED OWNER</span>
+              <b>{adminUser.displayName}</b>
+              <small>{adminUser.identityLabel} / SERVER ALLOWLIST</small>
+            </div>
+          ) : (
+            <label className="ops-role-switcher">
+              <span>SIMULATED CONTENT ROLE</span>
+              <select
+                aria-label="SIMULATED CONTENT ROLE"
+                value={role}
+                onChange={(event) => {
+                  const nextRole = event.target.value as ProbeRole;
+                  setRole(nextRole);
+                  setNotice(
+                    `Simulated identity changed to ${probeActors[nextRole].id}.`,
+                  );
+                }}
+              >
+                <option value="editor">Content Editor / editor-01</option>
+                <option value="reviewer">
+                  Operations Reviewer / reviewer-01
+                </option>
+              </select>
+              <small>
+                {actor.id} / {actor.scope}
+              </small>
+            </label>
+          )}
         </header>
 
         <div className="ops-notice" role="status">
@@ -456,6 +494,13 @@ export function AdminConsole() {
               currentPublicSnapshot?.revisionId ?? "HIDDEN"
             }
             openContent={() => setActiveView("content")}
+          />
+        )}
+
+        {activeView === "attendance" && (
+          <AttendancePanel
+            adminUser={adminUser}
+            onNotice={handleAttendanceNotice}
           />
         )}
 
@@ -786,11 +831,12 @@ function QueueView({
       </div>
 
       <div className="ops-next-slice">
-        <span>NEXT VERTICAL SLICE</span>
-        <h2>ATTENDANCE SUBMISSION → REVIEW → PUBLICATION</h2>
+        <span>ACTIVE VERTICAL SLICE</span>
+        <h2>ATTENDANCE IS NOW DURABLE AND PUBLICATION-GATED</h2>
         <p>
-          Attendance remains an independent state machine and starts after this
-          content workflow receives Human Owner validation.
+          Open Attendance to create one Yuna shift, move it through review and
+          publish it to the anonymous profile projection. Production remains
+          unchanged until Human Owner validation.
         </p>
       </div>
     </section>
