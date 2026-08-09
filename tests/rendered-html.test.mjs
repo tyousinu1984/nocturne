@@ -57,3 +57,23 @@ test("server-renders a fictional profile route", async () => {
   assert.match(html, /RETURN TO CAST DIRECTORY/);
   assert.doesNotMatch(html, /https:\/\/hentaitokyo\.com/i);
 });
+
+test("production keeps the admin workflow probe unavailable", async () => {
+  const previousProbeFlag = process.env.ENABLE_ADMIN_PROBE;
+  process.env.ENABLE_ADMIN_PROBE = "true";
+
+  try {
+    const response = await render("/admin");
+    assert.equal(response.status, 404);
+    const html = await response.text();
+
+    assert.doesNotMatch(html, /CONTENT CONTROL PROBE/i);
+    assert.doesNotMatch(html, /SIMULATED ROLE/i);
+  } finally {
+    if (previousProbeFlag === undefined) {
+      delete process.env.ENABLE_ADMIN_PROBE;
+    } else {
+      process.env.ENABLE_ADMIN_PROBE = previousProbeFlag;
+    }
+  }
+});
