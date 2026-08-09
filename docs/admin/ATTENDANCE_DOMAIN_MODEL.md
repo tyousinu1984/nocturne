@@ -1,7 +1,7 @@
 # Attendance Operations Alpha
 
 Status: development baseline
-Date: 2026-08-10
+Date: 2026-08-09
 Scope: one cast member, one service date and one owner-authorized operator
 
 ## Goal and boundary

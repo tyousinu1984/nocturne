@@ -1,6 +1,6 @@
 # Attendance Runtime Configuration
 
-Date: 2026-08-10
+Date: 2026-08-09
 
 ## Bindings
 
@@ -34,13 +34,14 @@ The Worker removes any caller-supplied internal allowlist header and reconstruct
 it only from `ADMIN_ALLOWED_USER_IDS`. Browser requests therefore cannot forge
 the server-side allowlist.
 
-## Production gate
+## Production configuration
 
-Before the attendance alpha can be deployed:
+The Attendance Alpha was deployed on 2026-08-09 with these completed controls:
 
-1. Obtain the owner's site-scoped user ID through a controlled SIWC request.
-2. Set `ADMIN_ALLOWED_USER_IDS` in Sites runtime environment variables.
-3. Confirm `NOCTURNE_DEV_AUTH` is absent from Sites.
-4. Save a version from the exact reviewed commit.
-5. Verify the D1 migration and retain the previous Sites version for rollback.
-6. Deploy only after Human Owner acceptance of the development version.
+1. The Owner's site-scoped user ID was obtained through a controlled SIWC
+   self-identity request.
+2. `ADMIN_ALLOWED_USER_IDS` is stored as a secret Sites runtime value.
+3. `NOCTURNE_DEV_AUTH` is absent from Sites.
+4. Sites version 10 was saved from the reviewed and production-fixed commit.
+5. The hosted D1 migration and anonymous projection passed smoke testing.
+6. Sites version 5 remains the pre-attendance rollback version.

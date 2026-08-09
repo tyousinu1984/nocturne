@@ -1,8 +1,8 @@
 # Attendance Alpha Verification
 
-Date: 2026-08-10
-Environment: isolated local development
-Production impact: none
+Date: 2026-08-09
+Environment: isolated local development and Sites production
+Production impact: Nocturne Sites version 10 is live
 
 ## Automated evidence
 
@@ -65,6 +65,25 @@ Additional observed controls:
 - Status and service-date operations use
   `idx_attendance_entries_status_date`.
 
+## Production promotion evidence
+
+- The Human Owner explicitly approved the Attendance Alpha for production on
+  2026-08-09.
+- Sites version 10 deploys commit
+  `263a6d3b48cc1a3fd299a7cd3ddae594a6844566` with environment revision 2.
+- `ADMIN_ALLOWED_USER_IDS` contains the controlled SIWC-derived site-scoped
+  Owner ID as a secret value; `NOCTURNE_DEV_AUTH` is absent.
+- The production D1 migrations completed and the anonymous attendance API
+  returns `availability: ready`, `managed: false` and zero initial entries.
+- Anonymous `/admin` requests redirect to Sign in with ChatGPT and anonymous
+  admin API requests return `authentication_required` with HTTP 401.
+- The authenticated Owner opens `/admin`, passes the server allowlist and sees
+  Attendance report `D1 READY`.
+- The temporary identity bootstrap routes were removed before the final version
+  was saved and both now return HTTP 404.
+- A clean final browser session recorded no console warning or error on the
+  authenticated Attendance view.
+
 ## Browser evidence
 
 - Authenticated development `/admin` exposes Attendance as a dedicated sidebar
@@ -88,8 +107,8 @@ Additional observed controls:
   bright pink, 8.61:1 on orange, 4.94:1 on deep-pink hover and 7.87:1 on the
   danger action.
 
-## Remaining gate
+## Next operating gate
 
-Technical verification does not authorize production promotion. The owner must
-validate the development experience and provide or approve the site-scoped
-allowlist identity setup.
+The production Alpha is ready for the Owner's first real attendance record. A
+future slice must define additional staff roles, offboarding and separation of
+duties before expanding access beyond the single Owner allowlist.
