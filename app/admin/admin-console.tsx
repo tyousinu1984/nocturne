@@ -1,8 +1,7 @@
-/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @next/next/no-html-link-for-pages, @next/next/no-img-element */
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import Link from "next/link";
 import { artists } from "../data";
 import { AttendancePanel } from "./attendance-panel";
 import {
@@ -158,7 +157,7 @@ export function AdminConsole({
   const [auditEntries, setAuditEntries] =
     useState<AuditEntry[]>(initialAudit);
   const [notice, setNotice] = useState(
-    "Authenticated development console. Attendance writes use isolated D1; profile revision data still resets on refresh.",
+    "Authenticated operations console. Attendance writes use durable D1; profile revision data still resets on refresh.",
   );
   const [attendanceLabel, setAttendanceLabel] = useState("D1 READY");
 
@@ -407,15 +406,15 @@ export function AdminConsole({
   return (
     <main className="ops-shell">
       <aside className="ops-sidebar">
-        <Link href="/" className="ops-brand">
+        <a href="/" className="ops-brand">
           <strong>NOCTURNE</strong>
           <span>OPS</span>
           <small>AUTHORIZED OPERATIONS ALPHA</small>
-        </Link>
+        </a>
 
         <div className="ops-environment">
           <i />
-          ISOLATED DEVELOPMENT
+          PRODUCTION / ATTENDANCE ALPHA
         </div>
 
         <nav aria-label="Operations sections">
@@ -835,8 +834,8 @@ function QueueView({
         <h2>ATTENDANCE IS NOW DURABLE AND PUBLICATION-GATED</h2>
         <p>
           Open Attendance to create one Yuna shift, move it through review and
-          publish it to the anonymous profile projection. Production remains
-          unchanged until Human Owner validation.
+          publish it to the anonymous profile projection. Attendance is live;
+          cast and media publishing remains a simulated Alpha workflow.
         </p>
       </div>
     </section>
