@@ -5,7 +5,14 @@ export function attendanceErrorResponse(error: unknown) {
   if (error instanceof AttendanceDomainError) {
     return Response.json(
       { error: error.message, code: error.code },
-      { status: error.code === "invalid_transition" ? 409 : 400 },
+      {
+        status:
+          error.code === "permission_denied"
+            ? 403
+            : error.code === "invalid_transition"
+              ? 409
+              : 400,
+      },
     );
   }
   if (error instanceof AttendanceStoreError) {

@@ -4,6 +4,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { artists } from "../data";
 import { AttendancePanel } from "./attendance-panel";
+import { CastAccountPanel } from "./cast-account-panel";
 import {
   canApproveRevision,
   canEditDraft,
@@ -22,6 +23,7 @@ import {
 type AdminView =
   | "queue"
   | "attendance"
+  | "access"
   | "content"
   | "release"
   | "governance";
@@ -45,13 +47,14 @@ const navItems: Array<{
     id: "attendance",
     number: "02",
     label: "ATTENDANCE",
-    hint: "Schedule and publish",
+    hint: "Create, edit and review",
   },
-  { id: "content", number: "03", label: "CAST & MEDIA", hint: "Edit one profile" },
-  { id: "release", number: "04", label: "RELEASE", hint: "Preview and publish" },
+  { id: "access", number: "03", label: "STAFF ACCESS", hint: "Identity and permissions" },
+  { id: "content", number: "04", label: "CAST & MEDIA", hint: "Edit one profile" },
+  { id: "release", number: "05", label: "RELEASE", hint: "Preview and publish" },
   {
     id: "governance",
-    number: "05",
+    number: "06",
     label: "GOVERNANCE",
     hint: "Rights and session log",
   },
@@ -160,6 +163,10 @@ export function AdminConsole({
     "Protected operations console. Attendance writes use durable local SQLite; profile revision data still resets on refresh.",
   );
   const [attendanceLabel, setAttendanceLabel] = useState("SQLITE READY");
+  const [accessLabel, setAccessLabel] = useState("ACCESS CONTROL");
+  const [accessNotice, setAccessNotice] = useState(
+    "Create cast identities, rotate access codes and invalidate sessions from one protected view.",
+  );
 
   const actor = probeActors[role];
   const isDraftEditable = canEditDraft(revisionStatus, actor.id);
@@ -174,6 +181,8 @@ export function AdminConsole({
   const bannerLabel =
     activeView === "attendance"
       ? attendanceLabel
+      : activeView === "access"
+        ? accessLabel
       : revisionStatus !== "approved" || publicationStatus === "baseline-live"
         ? revisionStatusCopy[revisionStatus]
         : publicationStatusCopy[publicationStatus];
@@ -182,6 +191,14 @@ export function AdminConsole({
     (label: string, message: string) => {
       setAttendanceLabel(label);
       setNotice(message);
+    },
+    [],
+  );
+
+  const handleAccessNotice = useCallback(
+    (label: string, message: string) => {
+      setAccessLabel(label);
+      setAccessNotice(message);
     },
     [],
   );
@@ -414,7 +431,7 @@ export function AdminConsole({
 
         <div className="ops-environment">
           <i />
-          PRODUCTION / ATTENDANCE ALPHA
+          OPERATIONS / ACCESS CONTROL ALPHA
         </div>
 
         <nav aria-label="Operations sections">
@@ -436,8 +453,8 @@ export function AdminConsole({
         <div className="ops-sidebar-note">
           <b>ALPHA BOUNDARY</b>
           <p>
-            One protected store login, one cast profile, one attendance date and one
-            anonymous public projection.
+            Cast accounts edit their own drafts. Store operators create and edit
+            every schedule, control review and publication, and retain an audit trail.
           </p>
         </div>
       </aside>
@@ -448,7 +465,7 @@ export function AdminConsole({
             <span>NOCTURNE TOKYO / INTERNAL OPERATIONS</span>
             <h1>{navItems.find((item) => item.id === activeView)?.label}</h1>
           </div>
-          {activeView === "attendance" ? (
+          {activeView === "attendance" || activeView === "access" ? (
             <div className="ops-role-switcher ops-authenticated-user">
               <span>AUTHENTICATED OPERATOR</span>
               <b>{adminUser.displayName}</b>
@@ -482,7 +499,7 @@ export function AdminConsole({
 
         <div className="ops-notice" role="status">
           <b>{bannerLabel}</b>
-          <span>{notice}</span>
+          <span>{activeView === "access" ? accessNotice : notice}</span>
         </div>
 
         {activeView === "queue" && (
@@ -498,9 +515,18 @@ export function AdminConsole({
 
         {activeView === "attendance" && (
           <AttendancePanel
-            adminUser={adminUser}
+            actorKind="admin"
+            endpoint="/api/admin/attendance"
+            identity={{
+              displayName: adminUser.displayName,
+              identityLabel: `${adminUser.identityLabel} / REVERSE PROXY`,
+            }}
             onNotice={handleAttendanceNotice}
           />
+        )}
+
+        {activeView === "access" && (
+          <CastAccountPanel onNotice={handleAccessNotice} />
         )}
 
         {activeView === "content" && (

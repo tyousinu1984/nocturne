@@ -24,6 +24,8 @@ before(async () => {
       HOST: "127.0.0.1",
       PORT: String(port),
       NOCTURNE_DATABASE_PATH: join(temporaryDirectory, "nocturne.sqlite"),
+      NOCTURNE_SESSION_SECRET:
+        "rendered-test-session-secret-with-at-least-thirty-two-characters",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -97,8 +99,18 @@ test("admin renders only after the reverse proxy authenticates the operator", as
   const html = await response.text();
   assert.match(html, /AUTHORIZED OPERATIONS ALPHA/i);
   assert.match(html, /STORE ACCESS/i);
+  assert.match(html, /STAFF ACCESS/i);
   assert.match(html, /durable local SQLite/i);
   assert.doesNotMatch(html, /store-owner/i);
+});
+
+test("staff portal renders in an ordinary browser without an OpenAI account", async () => {
+  const response = await render("/staff");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /CAST PORTAL/i);
+  assert.match(html, /MY ATTENDANCE/i);
+  assert.doesNotMatch(html, /openai|chatgpt|codex/i);
 });
 
 test("health confirms the SQLite migration set", async () => {
@@ -110,7 +122,7 @@ test("health confirms the SQLite migration set", async () => {
     status: "ok",
     app: "nocturne-tokyo",
     storage: "sqlite",
-    migrations: 2,
+    migrations: 3,
   });
 });
 
@@ -137,23 +149,64 @@ test("attendance API requires proxy authentication and same-origin writes", asyn
 });
 
 test("authenticated attendance writes persist and drive the public projection", async () => {
-  const headers = {
+  const adminHeaders = {
     accept: "application/json",
     "content-type": "application/json",
     "x-nocturne-admin-authenticated": "1",
     origin: baseUrl,
   };
-  const command = async (action, body, key) => {
-    const response = await render("/api/admin/attendance", {
+  const accountResponse = await render("/api/admin/cast-accounts", {
+    method: "POST",
+    headers: adminHeaders,
+    body: JSON.stringify({ action: "create", artistSlug: "yuna" }),
+  });
+  assert.equal(accountResponse.status, 201);
+  const accountResult = await accountResponse.json();
+  assert.ok(accountResult.temporaryAccessCode);
+
+  const loginResponse = await render("/api/staff/session", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      origin: baseUrl,
+    },
+    body: JSON.stringify({
+      artistSlug: "yuna",
+      credential: accountResult.temporaryAccessCode,
+    }),
+  });
+  assert.equal(loginResponse.status, 200);
+  const staffCookie = loginResponse.headers.get("set-cookie");
+  assert.ok(staffCookie);
+
+  const staffCommand = async (action, body, key) => {
+    const response = await render("/api/staff/attendance", {
       method: "POST",
-      headers: { ...headers, "idempotency-key": key },
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        origin: baseUrl,
+        cookie: staffCookie,
+        "idempotency-key": key,
+      },
       body: JSON.stringify({ action, ...body }),
     });
     assert.ok(response.ok, `${action} failed with ${response.status}`);
     return response.json();
   };
 
-  let result = await command(
+  const adminCommand = async (action, body, key) => {
+    const response = await render("/api/admin/attendance", {
+      method: "POST",
+      headers: { ...adminHeaders, "idempotency-key": key },
+      body: JSON.stringify({ action, ...body }),
+    });
+    assert.ok(response.ok, `${action} failed with ${response.status}`);
+    return response.json();
+  };
+
+  let result = await staffCommand(
     "create",
     {
       artistSlug: "yuna",
@@ -164,16 +217,9 @@ test("authenticated attendance writes persist and drive the public projection", 
     },
     "node-create",
   );
-  for (const action of ["submit", "approve", "publish"]) {
-    result = await command(
-      action,
-      {
-        attendanceId: result.entry.id,
-        expectedVersion: result.entry.version,
-      },
-      `node-${action}`,
-    );
-  }
+  result = await staffCommand("submit", { attendanceId: result.entry.id, expectedVersion: result.entry.version }, "node-submit");
+  result = await adminCommand("approve", { attendanceId: result.entry.id, expectedVersion: result.entry.version }, "node-approve");
+  await adminCommand("publish", { attendanceId: result.entry.id, expectedVersion: result.entry.version }, "node-publish");
 
   const publicResponse = await render("/api/public/attendance?artist=yuna", {
     headers: { accept: "application/json" },
@@ -183,6 +229,17 @@ test("authenticated attendance writes persist and drive the public projection", 
   assert.equal(projection.availability, "ready");
   assert.equal(projection.managed, true);
   assert.equal(projection.entries.length, 1);
+
+  const resetResponse = await render("/api/admin/cast-accounts", {
+    method: "POST",
+    headers: adminHeaders,
+    body: JSON.stringify({ action: "rotate_credential", accountId: accountResult.account.id }),
+  });
+  assert.equal(resetResponse.status, 200);
+  const expiredSession = await render("/api/staff/attendance", {
+    headers: { accept: "application/json", cookie: staffCookie },
+  });
+  assert.equal(expiredSession.status, 401);
 });
 
 async function reservePort() {
@@ -206,7 +263,9 @@ async function waitForHealth() {
     try {
       const response = await fetch(`${baseUrl}/health`);
       if (response.ok) return;
-    } catch {}
+    } catch (error) {
+      void error;
+    }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error(`Timed out waiting for Nocturne.\n${serverOutput}`);

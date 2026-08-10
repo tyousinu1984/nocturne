@@ -14,7 +14,14 @@ NOCTURNE_DATABASE_PATH=~/Library/Application Support/NocturneTokyo/data/nocturne
 
 The database directory is mode `700`; the SQLite file is mode `600`. Startup
 enables foreign keys, WAL mode and a five-second busy timeout, then applies the
-two checked-in attendance migrations transactionally.
+three checked-in attendance and cast-access migrations transactionally.
+
+The production entrypoint is `scripts/start-production.sh`, copied into each
+read-only release beside `server.js`. It loads the staff-session signing secret
+from macOS Keychain service
+`cc.shinpei.nocturne-tokyo.NOCTURNE_SESSION_SECRET`, account `runtime`, then
+exports it only to the Node child process. The secret is absent from Git,
+LaunchAgent environment variables, deployment manifests and receipts.
 
 ## Admin authentication
 

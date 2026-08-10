@@ -21,6 +21,12 @@ export const attendanceActions = [
 
 export type AttendanceAction = (typeof attendanceActions)[number];
 
+export type AttendanceActor = {
+  userId: string;
+  role: "admin" | "cast";
+  artistSlug?: string;
+};
+
 export type AttendanceDraftInput = {
   artistSlug: string;
   serviceDate: string;
@@ -86,6 +92,7 @@ export class AttendanceDomainError extends Error {
     | "invalid_time"
     | "invalid_time_order"
     | "invalid_transition"
+    | "permission_denied"
     | "reason_required"
     | "text_too_long";
 
@@ -96,12 +103,36 @@ export class AttendanceDomainError extends Error {
       | "invalid_time"
       | "invalid_time_order"
       | "invalid_transition"
+      | "permission_denied"
       | "reason_required"
       | "text_too_long",
     message: string,
   ) {
     super(message);
     this.code = code;
+  }
+}
+
+export function assertAttendancePermission({
+  action,
+  actor,
+  artistSlug,
+}: {
+  action: AttendanceAction;
+  actor: AttendanceActor;
+  artistSlug: string;
+}) {
+  const castActions: AttendanceAction[] = ["create", "save_draft", "submit"];
+  const allowed =
+    actor.role === "cast"
+      ? castActions.includes(action) && actor.artistSlug === artistSlug
+      : attendanceActions.includes(action);
+
+  if (!allowed) {
+    throw new AttendanceDomainError(
+      "permission_denied",
+      "This identity cannot perform that attendance action.",
+    );
   }
 }
 
@@ -158,7 +189,17 @@ export function assertValidAttendanceDraft(input: AttendanceDraftInput) {
 export function attendanceTargetStatus(
   action: Exclude<AttendanceAction, "create">,
   currentStatus: AttendanceStatus,
+  actorRole: AttendanceActor["role"] = "cast",
 ) {
+  if (action === "save_draft" && actorRole === "admin") {
+    if (currentStatus === "rejected" || currentStatus === "cancelled") {
+      throw new AttendanceDomainError(
+        "invalid_transition",
+        `save_draft cannot run while attendance is ${currentStatus}.`,
+      );
+    }
+    return currentStatus;
+  }
   const transition = transitionTargets[action];
   if (transition.from !== currentStatus) {
     throw new AttendanceDomainError(

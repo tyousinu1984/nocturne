@@ -4492,7 +4492,7 @@ svg {
   .ops-sidebar nav {
     margin-top: 10px;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 3px;
   }
 
@@ -4666,5 +4666,385 @@ svg {
 
   .live-track {
     animation: none;
+  }
+}
+
+.ops-access {
+  padding: 28px;
+}
+
+.ops-access-principles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 22px 0;
+}
+
+.ops-access-principles article,
+.ops-account-grid > article,
+.ops-account-audit,
+.ops-temporary-code {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #111;
+}
+
+.ops-access-principles article {
+  padding: 18px;
+}
+
+.ops-access-principles b,
+.ops-account-audit > span {
+  color: var(--pink);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.ops-access-principles p,
+.ops-account-grid article > p,
+.ops-account-audit p,
+.ops-temporary-code p {
+  margin: 8px 0 0;
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.ops-temporary-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding: 22px;
+  border-color: var(--orange);
+  box-shadow: inset 5px 0 0 var(--orange);
+}
+
+.ops-temporary-code span {
+  display: block;
+  color: var(--orange);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+
+.ops-temporary-code strong {
+  display: block;
+  margin-top: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(19px, 3vw, 30px);
+  letter-spacing: 0.08em;
+}
+
+.ops-temporary-code button,
+.ops-account-actions button,
+.staff-login button,
+.staff-topbar button {
+  min-height: 42px;
+  border: 0;
+  padding: 0 16px;
+  background: var(--pink);
+  color: white;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+
+.ops-account-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ops-account-grid > article {
+  min-width: 0;
+  padding: 18px;
+}
+
+.ops-account-grid > article.is-disabled {
+  opacity: 0.68;
+  border-color: rgba(255, 133, 0, 0.5);
+}
+
+.ops-account-title {
+  position: relative;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.ops-account-title span,
+.ops-account-title em {
+  color: #999;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.ops-account-title h3 {
+  margin: 4px 0;
+  font-family: var(--display);
+  font-size: 28px;
+  text-transform: uppercase;
+}
+
+.ops-account-title em {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: var(--green);
+}
+
+.ops-account-grid .is-disabled .ops-account-title em {
+  color: var(--orange);
+}
+
+.ops-account-grid dl {
+  margin: 14px 0;
+}
+
+.ops-account-grid dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ops-account-grid dt,
+.ops-account-grid dd {
+  margin: 0;
+  font-size: 9px;
+}
+
+.ops-account-grid dt {
+  color: #888;
+  letter-spacing: 0.08em;
+}
+
+.ops-account-grid dd {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ops-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.ops-account-actions button.is-secondary {
+  background: white;
+  color: #111;
+}
+
+.ops-account-actions button.is-danger {
+  background: #7f1935;
+}
+
+.ops-account-actions button:disabled,
+.staff-login button:disabled {
+  cursor: wait;
+  opacity: 0.48;
+}
+
+.ops-account-audit {
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.ops-account-audit article {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 8px 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ops-account-audit article b {
+  font-size: 10px;
+}
+
+.ops-account-audit article small {
+  color: #888;
+  font-size: 9px;
+}
+
+.ops-account-audit article p {
+  grid-column: 1 / -1;
+}
+
+.staff-shell {
+  min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 88% 10%, rgba(255, 47, 145, 0.2), transparent 34%),
+    #080808;
+}
+
+.staff-login-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.staff-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  width: max-content;
+}
+
+.staff-brand strong {
+  font-family: var(--display);
+  font-size: 26px;
+  font-style: italic;
+}
+
+.staff-brand span {
+  color: var(--pink);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+}
+
+.staff-login {
+  align-self: center;
+  width: min(520px, 100%);
+  margin: 60px auto;
+  border: 6px solid white;
+  padding: clamp(26px, 6vw, 52px);
+  background: #0d0d0d;
+  box-shadow: 12px 12px 0 var(--pink), 22px 22px 0 var(--orange);
+}
+
+.staff-login > span {
+  color: var(--orange);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.staff-login h1 {
+  margin: 8px 0 12px;
+  font-family: var(--display);
+  font-size: clamp(38px, 8vw, 64px);
+  line-height: 0.92;
+}
+
+.staff-login > p {
+  margin: 0 0 24px;
+  color: #aaa;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.staff-login label {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.staff-login label span {
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+}
+
+.staff-login select,
+.staff-login input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #555;
+  padding: 0 13px;
+  background: #171717;
+  color: white;
+}
+
+.staff-login button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 20px;
+}
+
+.staff-login small {
+  display: block;
+  margin-top: 13px;
+  color: #777;
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.staff-login-error {
+  margin-top: 14px;
+  padding: 11px;
+  border-left: 4px solid var(--orange);
+  background: rgba(255, 133, 0, 0.12);
+  color: #ffd2aa;
+  font-size: 11px;
+}
+
+.staff-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  padding-bottom: 18px;
+}
+
+.staff-topbar > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.staff-topbar > div span {
+  color: #888;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.staff-loading {
+  margin: auto;
+  color: var(--pink);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+@media (max-width: 900px) {
+  .ops-access-principles,
+  .ops-account-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .ops-access {
+    padding: 14px;
+  }
+
+  .ops-access-principles,
+  .ops-account-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-temporary-code,
+  .staff-topbar,
+  .staff-topbar > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ops-temporary-code button {
+    width: 100%;
+  }
+
+  .staff-shell {
+    padding: 14px;
   }
 }

@@ -5,9 +5,12 @@ import {
   AttendanceStoreError,
   createAttendanceStore,
 } from "../app/admin/attendance-store.ts";
+import { AttendanceDomainError } from "../app/admin/attendance-domain.ts";
+import { createCastAccountStore } from "../app/admin/cast-account-store.ts";
 import { createSQLiteD1 } from "./helpers/sqlite-d1.mjs";
 
-const actorUserId = "owner-user";
+const castActor = { userId: "cast-user", role: "cast", artistSlug: "yuna" };
+const adminActor = { userId: "owner-user", role: "admin" };
 
 function draft(overrides = {}) {
   return {
@@ -23,16 +26,19 @@ function draft(overrides = {}) {
 function createCommand(idempotencyKey, draftInput = draft()) {
   return {
     action: "create",
-    actorUserId,
+    actor: castActor,
     idempotencyKey,
     draft: draftInput,
   };
 }
 
 async function transition(store, entry, action, idempotencyKey, reason) {
+  const actor = ["save_draft", "submit"].includes(action)
+    ? castActor
+    : adminActor;
   return store.executeAttendanceCommand({
     action,
-    actorUserId,
+    actor,
     attendanceId: entry.id,
     expectedVersion: entry.version,
     idempotencyKey,
@@ -70,6 +76,83 @@ test("published attendance becomes public and cancellation removes it", async (t
 
   const history = await store.listAttendanceForAdmin();
   assert.equal(history.events.length, 5);
+});
+
+test("administrator can manage every profile while cast remains profile-bound", async (t) => {
+  const d1 = createSQLiteD1();
+  t.after(() => d1.close());
+  const store = createAttendanceStore(d1, { initializeSchema: true });
+
+  const adminCreated = await store.executeAttendanceCommand({
+    ...createCommand("admin-create", draft({ artistSlug: "aika" })),
+    actor: adminActor,
+  });
+  assert.equal(adminCreated.entry.artistSlug, "aika");
+  assert.equal(adminCreated.entry.status, "draft");
+
+  const created = await store.executeAttendanceCommand(createCommand("cast-create"));
+  await assert.rejects(
+    store.executeAttendanceCommand({
+      action: "approve",
+      actor: castActor,
+      attendanceId: created.entry.id,
+      expectedVersion: created.entry.version,
+      idempotencyKey: "cast-approve",
+    }),
+    (error) =>
+      error instanceof AttendanceDomainError &&
+      error.code === "permission_denied",
+  );
+
+  await assert.rejects(
+    store.executeAttendanceCommand({
+      ...createCommand("other-cast-create", draft({ artistSlug: "aika" })),
+      actor: castActor,
+    }),
+    (error) =>
+      error instanceof AttendanceDomainError &&
+      error.code === "permission_denied",
+  );
+});
+
+test("administrator can correct a published schedule without changing its status", async (t) => {
+  const d1 = createSQLiteD1();
+  t.after(() => d1.close());
+  const store = createAttendanceStore(d1, { initializeSchema: true });
+
+  let result = await store.executeAttendanceCommand(createCommand("live-create"));
+  result = await transition(store, result.entry, "submit", "live-submit");
+  result = await transition(store, result.entry, "approve", "live-approve");
+  result = await transition(store, result.entry, "publish", "live-publish");
+
+  const corrected = await store.executeAttendanceCommand({
+    action: "save_draft",
+    actor: adminActor,
+    attendanceId: result.entry.id,
+    expectedVersion: result.entry.version,
+    idempotencyKey: "live-correction",
+    draft: draft({ startTime: "19:00", endTime: "23:30" }),
+  });
+  assert.equal(corrected.entry.status, "published");
+  assert.equal(corrected.entry.startTime, "19:00");
+  assert.match(corrected.event.detail, /attendance\.admin_updated/);
+
+  const projection = await store.listPublicAttendance("yuna");
+  assert.equal(projection.entries[0].startTime, "19:00");
+
+  await assert.rejects(
+    store.executeAttendanceCommand({
+      action: "save_draft",
+      actor: castActor,
+      attendanceId: corrected.entry.id,
+      expectedVersion: corrected.entry.version,
+      idempotencyKey: "cast-live-correction",
+      draft: draft({ startTime: "20:00" }),
+    }),
+    (error) =>
+      error instanceof AttendanceDomainError &&
+      error.code === "invalid_transition",
+  );
 });
 
 test("idempotent retries return the first result and reject payload reuse", async (t) => {
@@ -167,7 +250,11 @@ test("development DDL stays equivalent to the generated migration", async (t) =>
   const runtimeStore = createAttendanceStore(runtimeD1, {
     initializeSchema: true,
   });
+  const runtimeAccountStore = createCastAccountStore(runtimeD1, {
+    initializeSchema: true,
+  });
   await runtimeStore.ensureSchema();
+  await runtimeAccountStore.ensureSchema();
 
   const journal = JSON.parse(
     readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"),

@@ -12,6 +12,15 @@ import {
   attendanceStatuses,
 } from "../app/admin/attendance-domain";
 
+export const castAccountStatuses = ["active", "disabled"] as const;
+export const castAccountActions = [
+  "create",
+  "rotate_credential",
+  "enable",
+  "disable",
+  "login",
+] as const;
+
 export const attendanceEntries = sqliteTable(
   "attendance_entries",
   {
@@ -98,6 +107,60 @@ export const attendanceEvents = sqliteTable(
     uniqueIndex("uq_attendance_events_idempotency").on(table.idempotencyKey),
     index("idx_attendance_events_entry_created").on(
       table.attendanceId,
+      table.createdAt,
+      table.id,
+    ),
+  ],
+);
+
+export const castAccounts = sqliteTable(
+  "cast_accounts",
+  {
+    id: text("id").primaryKey(),
+    artistSlug: text("artist_slug").notNull(),
+    displayName: text("display_name").notNull(),
+    credentialHash: text("credential_hash").notNull(),
+    status: text("status", { enum: castAccountStatuses })
+      .notNull()
+      .default("active"),
+    sessionVersion: integer("session_version").notNull().default(1),
+    lastLoginAt: text("last_login_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    check(
+      "cast_accounts_status_valid",
+      sql`${table.status} IN ('active', 'disabled')`,
+    ),
+    check(
+      "cast_accounts_session_version_positive",
+      sql`${table.sessionVersion} >= 1`,
+    ),
+    uniqueIndex("uq_cast_accounts_artist_slug").on(table.artistSlug),
+    index("idx_cast_accounts_status").on(table.status),
+  ],
+);
+
+export const castAccountEvents = sqliteTable(
+  "cast_account_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => castAccounts.id, { onDelete: "cascade" }),
+    action: text("action", { enum: castAccountActions }).notNull(),
+    actorUserId: text("actor_user_id").notNull(),
+    detail: text("detail").notNull().default(""),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    check(
+      "cast_account_events_action_valid",
+      sql`${table.action} IN ('create', 'rotate_credential', 'enable', 'disable', 'login')`,
+    ),
+    index("idx_cast_account_events_account_created").on(
+      table.accountId,
       table.createdAt,
       table.id,
     ),

@@ -1,10 +1,13 @@
 import {
   assertAttendanceReason,
+  assertAttendancePermission,
   assertValidAttendanceDraft,
+  AttendanceDomainError,
   attendanceActionDetail,
   attendanceStatuses,
   attendanceTargetStatus,
   type AttendanceAction,
+  type AttendanceActor,
   type AttendanceDraftInput,
   type AttendanceEntryRecord,
   type AttendanceEventRecord,
@@ -65,14 +68,14 @@ type AttendanceSnapshotRow = {
 
 type CreateAttendanceCommand = {
   action: "create";
-  actorUserId: string;
+  actor: AttendanceActor;
   idempotencyKey: string;
   draft: AttendanceDraftInput;
 };
 
 type UpdateAttendanceCommand = {
   action: Exclude<AttendanceAction, "create">;
-  actorUserId: string;
+  actor: AttendanceActor;
   attendanceId: string;
   expectedVersion: number;
   idempotencyKey: string;
@@ -258,6 +261,33 @@ export function createAttendanceStore(
     };
   }
 
+  async function listAttendanceForCast(artistSlug: string) {
+    await ensureSchema();
+    const [entryResult, eventResult] = await d1.batch([
+      d1.prepare(
+        `${entrySelect}
+         WHERE artist_slug = ?
+         ORDER BY service_date ASC, start_time ASC, created_at DESC
+         LIMIT 50`,
+      ).bind(artistSlug),
+      d1.prepare(
+        `${eventSelect}
+         WHERE attendance_id IN (
+           SELECT id FROM attendance_entries WHERE artist_slug = ?
+         )
+         ORDER BY id DESC
+         LIMIT 100`,
+      ).bind(artistSlug),
+    ]);
+
+    return {
+      entries: (entryResult as unknown as { results: AttendanceEntryRecord[] })
+        .results,
+      events: (eventResult as unknown as { results: AttendanceEventRecord[] })
+        .results,
+    };
+  }
+
   async function getAttendanceEntry(attendanceId: string) {
     await ensureSchema();
     const row = await d1
@@ -419,7 +449,7 @@ export function createAttendanceStore(
             command.draft.startTime,
             command.draft.endTime,
             command.draft.note?.trim() ?? "",
-            command.actorUserId,
+            command.actor.userId,
             command.idempotencyKey,
             now,
             now,
@@ -436,7 +466,7 @@ export function createAttendanceStore(
             attendanceId,
             command.idempotencyKey,
             requestFingerprint,
-            command.actorUserId,
+            command.actor.userId,
             detail,
             JSON.stringify(createdEntry),
             now,
@@ -473,7 +503,11 @@ export function createAttendanceStore(
       );
     }
 
-    const nextStatus = attendanceTargetStatus(command.action, current.status);
+    const nextStatus = attendanceTargetStatus(
+      command.action,
+      current.status,
+      command.actor.role,
+    );
     assertAttendanceReason(command.action, command.reason);
 
     const draft =
@@ -498,10 +532,10 @@ export function createAttendanceStore(
     const now = new Date().toISOString();
     const next = {
       submittedBy:
-        command.action === "submit" ? command.actorUserId : current.submittedBy,
+        command.action === "submit" ? command.actor.userId : current.submittedBy,
       reviewedBy:
         command.action === "approve" || command.action === "reject"
-          ? command.actorUserId
+          ? command.actor.userId
           : current.reviewedBy,
       rejectionReason:
         command.action === "reject"
@@ -522,13 +556,16 @@ export function createAttendanceStore(
       cancelledAt:
         command.action === "cancel" ? now : current.cancelledAt,
     };
-    const detail = attendanceActionDetail({
-      action: command.action,
-      reason: command.reason,
-      serviceDate: draft.serviceDate,
-      startTime: draft.startTime,
-      endTime: draft.endTime,
-    });
+    const detail =
+      command.action === "save_draft" && command.actor.role === "admin"
+        ? `attendance.admin_updated for ${draft.serviceDate} ${draft.startTime}-${draft.endTime}`
+        : attendanceActionDetail({
+            action: command.action,
+            reason: command.reason,
+            serviceDate: draft.serviceDate,
+            startTime: draft.startTime,
+            endTime: draft.endTime,
+          });
     const updatedEntry: AttendanceEntryRecord = {
       ...current,
       artistSlug: draft.artistSlug,
@@ -612,7 +649,7 @@ export function createAttendanceStore(
             command.action,
             current.status,
             nextStatus,
-            command.actorUserId,
+            command.actor.userId,
             detail,
             JSON.stringify(updatedEntry),
             now,
@@ -654,6 +691,21 @@ export function createAttendanceStore(
   async function executeAttendanceCommand(command: AttendanceCommand) {
     try {
       await ensureSchema();
+      const targetArtistSlug =
+        command.action === "create"
+          ? command.draft.artistSlug
+          : (await getAttendanceEntry(command.attendanceId))?.artistSlug;
+      if (!targetArtistSlug) {
+        throw new AttendanceStoreError(
+          "not_found",
+          "Attendance entry was not found.",
+        );
+      }
+      assertAttendancePermission({
+        action: command.action,
+        actor: command.actor,
+        artistSlug: targetArtistSlug,
+      });
       const requestFingerprint = await attendanceCommandFingerprint(command);
       const existingResult = await findIdempotentResult(
         command.idempotencyKey,
@@ -666,7 +718,12 @@ export function createAttendanceStore(
       }
       return updateAttendance(command, requestFingerprint);
     } catch (error) {
-      if (error instanceof AttendanceStoreError) throw error;
+      if (
+        error instanceof AttendanceStoreError ||
+        error instanceof AttendanceDomainError
+      ) {
+        throw error;
+      }
       throw mapDatabaseError(error);
     }
   }
@@ -715,6 +772,7 @@ export function createAttendanceStore(
   return {
     ensureSchema,
     listAttendanceForAdmin,
+    listAttendanceForCast,
     getAttendanceEntry,
     executeAttendanceCommand,
     listPublicAttendance,
@@ -738,6 +796,10 @@ export async function listAttendanceForAdmin() {
   return (await runtimeAttendanceStore()).listAttendanceForAdmin();
 }
 
+export async function listAttendanceForCast(artistSlug: string) {
+  return (await runtimeAttendanceStore()).listAttendanceForCast(artistSlug);
+}
+
 export async function getAttendanceEntry(attendanceId: string) {
   return (await runtimeAttendanceStore()).getAttendanceEntry(attendanceId);
 }
@@ -755,12 +817,12 @@ async function attendanceCommandFingerprint(command: AttendanceCommand) {
     command.action === "create"
       ? {
           action: command.action,
-          actorUserId: command.actorUserId,
+          actor: command.actor,
           draft: command.draft,
         }
       : {
           action: command.action,
-          actorUserId: command.actorUserId,
+          actor: command.actor,
           attendanceId: command.attendanceId,
           expectedVersion: command.expectedVersion,
           draft: command.draft,

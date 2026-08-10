@@ -7,6 +7,7 @@ import {
 } from "node:sqlite";
 import initialMigration from "../drizzle/0000_minor_black_knight.sql?raw";
 import snapshotMigration from "../drizzle/0001_chilly_night_thrasher.sql?raw";
+import castAccessMigration from "../drizzle/0002_strange_sugar_man.sql?raw";
 
 type RunMeta = { changes?: number };
 type RunResult = { meta: RunMeta };
@@ -84,6 +85,7 @@ class SQLiteD1 {
 const migrations = [
   ["0000_minor_black_knight", initialMigration],
   ["0001_chilly_night_thrasher", snapshotMigration],
+  ["0002_strange_sugar_man", castAccessMigration],
 ] as const;
 
 let binding: SQLiteD1 | undefined;

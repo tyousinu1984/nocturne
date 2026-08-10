@@ -33,6 +33,18 @@ test("attendance supports the rejection terminal path", () => {
   );
 });
 
+test("administrator corrections preserve active attendance status", () => {
+  for (const status of ["draft", "pending", "approved", "published"]) {
+    assert.equal(attendanceTargetStatus("save_draft", status, "admin"), status);
+  }
+  assert.throws(
+    () => attendanceTargetStatus("save_draft", "cancelled", "admin"),
+    (error) =>
+      error instanceof AttendanceDomainError &&
+      error.code === "invalid_transition",
+  );
+});
+
 test("attendance draft validation requires an ordered Tokyo-local time range", () => {
   assert.doesNotThrow(() => assertValidAttendanceDraft(validDraft));
   assert.throws(

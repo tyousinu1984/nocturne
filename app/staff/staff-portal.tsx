@@ -1,0 +1,97 @@
+/* eslint-disable @next/next/no-html-link-for-pages */
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { artists } from "../data";
+import { AttendancePanel } from "../admin/attendance-panel";
+
+type StaffAccount = {
+  id: string;
+  artistSlug: string;
+  displayName: string;
+  status: "active";
+};
+
+export function StaffPortal() {
+  const [account, setAccount] = useState<StaffAccount | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [artistSlug, setArtistSlug] = useState(artists[0]?.slug ?? "");
+  const [credential, setCredential] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState({ label: "CAST PORTAL", message: "Manage your own attendance and submit changes for store review." });
+
+  const checkSession = useCallback(async () => {
+    try {
+      const response = await fetch("/api/staff/session", { headers: { accept: "application/json" } });
+      if (!response.ok) {
+        setAccount(null);
+        return;
+      }
+      const body = (await response.json()) as { account: StaffAccount };
+      setAccount(body.account);
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkSession();
+  }, [checkSession]);
+
+  async function signIn(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/staff/session", {
+        method: "POST",
+        headers: { accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify({ artistSlug, credential }),
+      });
+      const body = (await response.json()) as { account?: StaffAccount; error?: string };
+      if (!response.ok || !body.account) throw new Error(body.error ?? "Sign-in failed.");
+      setAccount(body.account);
+      setCredential("");
+      setNotice({ label: "SIGNED IN", message: `${body.account.displayName} can now manage attendance for the bound profile.` });
+    } catch (signInError) {
+      setError(signInError instanceof Error ? signInError.message : "Sign-in failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signOut() {
+    await fetch("/api/staff/session", { method: "DELETE", headers: { accept: "application/json" } });
+    setAccount(null);
+    setNotice({ label: "SIGNED OUT", message: "The staff session has ended." });
+  }
+
+  if (checking) {
+    return <main className="staff-shell"><h1 className="sr-only">MY ATTENDANCE</h1><p className="staff-loading">CHECKING STAFF SESSION…</p></main>;
+  }
+
+  if (!account) {
+    return (
+      <main className="staff-shell staff-login-shell">
+        <a className="staff-brand" href="/"><strong>NOCTURNE</strong><span>CAST PORTAL</span></a>
+        <form className="staff-login" onSubmit={signIn}>
+          <span>PRIVATE STAFF ACCESS</span><h1>MY ATTENDANCE</h1><p>Select your profile and enter the temporary code supplied by the store operator.</p>
+          <label><span>CAST PROFILE</span><select value={artistSlug} onChange={(event) => setArtistSlug(event.target.value)}>{artists.map((artist) => <option key={artist.slug} value={artist.slug}>{artist.name}</option>)}</select></label>
+          <label><span>ACCESS CODE</span><input type="password" autoComplete="current-password" value={credential} onChange={(event) => setCredential(event.target.value)} /></label>
+          {error && <div className="staff-login-error" role="alert">{error}</div>}
+          <button type="submit" disabled={busy || credential.trim().length < 12}>{busy ? "SIGNING IN…" : "SIGN IN"}</button>
+          <small>The store can disable this identity or rotate its code at any time.</small>
+        </form>
+      </main>
+    );
+  }
+
+  return (
+    <main className="staff-shell">
+      <header className="staff-topbar"><a className="staff-brand" href="/"><strong>NOCTURNE</strong><span>CAST PORTAL</span></a><div><span>SIGNED IN</span><b>{account.displayName}</b><button type="button" onClick={signOut}>SIGN OUT</button></div></header>
+      <div className="ops-notice" role="status"><b>{notice.label}</b><span>{notice.message}</span></div>
+      <AttendancePanel actorKind="cast" endpoint="/api/staff/attendance" identity={{ displayName: account.displayName, identityLabel: `CAST ACCOUNT / ${account.artistSlug}`, artistSlug: account.artistSlug, artistName: account.displayName }} onNotice={(label, message) => setNotice({ label, message })} onAuthenticationLost={() => setAccount(null)} />
+    </main>
+  );
+}

@@ -16,6 +16,17 @@ test("invalid transitions are reported as HTTP conflicts", async () => {
   assert.equal((await response.json()).code, "invalid_transition");
 });
 
+test("permission failures are reported as forbidden", async () => {
+  const response = attendanceErrorResponse(
+    new AttendanceDomainError(
+      "permission_denied",
+      "This identity cannot perform that attendance action.",
+    ),
+  );
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).code, "permission_denied");
+});
+
 test("version conflicts preserve the latest readable entry", async () => {
   const currentEntry = { id: "att-1", version: 4 };
   const response = attendanceErrorResponse(

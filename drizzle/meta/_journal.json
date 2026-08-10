@@ -15,6 +15,13 @@
       "when": 1786295738919,
       "tag": "0001_chilly_night_thrasher",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786329120754,
+      "tag": "0002_strange_sugar_man",
+      "breakpoints": true
     }
   ]
 }
