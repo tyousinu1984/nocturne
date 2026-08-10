@@ -25,13 +25,6 @@ export async function GET() {
       { status: 401 },
     );
   }
-  if (access.kind === "forbidden") {
-    return Response.json(
-      { error: "Admin access denied.", code: "admin_forbidden" },
-      { status: 403 },
-    );
-  }
-
   try {
     const data = await listAttendanceForAdmin();
     return Response.json(data, {
@@ -51,12 +44,6 @@ export async function POST(request: Request) {
     return Response.json(
       { error: "Authentication required.", code: "authentication_required" },
       { status: 401 },
-    );
-  }
-  if (access.kind === "forbidden") {
-    return Response.json(
-      { error: "Admin access denied.", code: "admin_forbidden" },
-      { status: 403 },
     );
   }
   const requestOrigin = request.headers.get("origin");

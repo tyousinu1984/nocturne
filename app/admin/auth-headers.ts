@@ -1,2 +1,2 @@
-export const ADMIN_ALLOWLIST_HEADER =
-  "x-nocturne-admin-allowed-user-ids";
+export const ADMIN_AUTHENTICATED_HEADER =
+  "x-nocturne-admin-authenticated";

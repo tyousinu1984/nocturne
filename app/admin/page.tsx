@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { requireChatGPTUser } from "../chatgpt-auth";
-import { adminIdentityLabel, hasAdminAccess } from "./access";
+import { adminIdentityLabel, getAdminAccess } from "./access";
 import { AdminConsole } from "./admin-console";
 
 export const dynamic = "force-dynamic";
@@ -16,14 +15,14 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage() {
-  const user = await requireChatGPTUser("/admin");
-  if (!(await hasAdminAccess(user.userId))) notFound();
+  const access = await getAdminAccess();
+  if (access.kind !== "authorized") notFound();
 
   return (
     <AdminConsole
       adminUser={{
-        displayName: user.displayName,
-        identityLabel: adminIdentityLabel(user.userId),
+        displayName: access.user.displayName,
+        identityLabel: adminIdentityLabel(),
       }}
     />
   );

@@ -87,8 +87,8 @@ function eventDate(value: string) {
 function unavailablePreview(loadState: Exclude<AttendanceLoadState, "ready">) {
   const copy = {
     loading: ["CHECKING PROJECTION", "LOADING ATTENDANCE SERVICE", "CHECKING"],
-    auth_required: ["SIGN IN REQUIRED", "REAUTHENTICATE TO CONTINUE", "SIGNED OUT"],
-    forbidden: ["ADMIN ACCESS UNAVAILABLE", "OWNER ALLOWLIST REQUIRED", "DENIED"],
+    auth_required: ["ACCESS CODE REQUIRED", "REOPEN ADMIN LOGIN", "LOCKED"],
+    forbidden: ["ADMIN ACCESS UNAVAILABLE", "STORE ACCESS REQUIRED", "DENIED"],
     storage_unavailable: [
       "PROJECTION UNKNOWN",
       "RELOAD ATTENDANCE STORAGE",
@@ -192,7 +192,7 @@ export function AttendancePanel({
           ? failureKind
           : "service_error";
       const label = {
-        auth_required: "SIGN IN REQUIRED",
+        auth_required: "STORE ACCESS REQUIRED",
         forbidden: "ADMIN ACCESS DENIED",
         storage_unavailable: "ATTENDANCE UNAVAILABLE",
         service_error: "ATTENDANCE SERVICE ERROR",
@@ -292,7 +292,7 @@ export function AttendancePanel({
     setCommandError("");
     onNotice(
       "NEW ATTENDANCE",
-      "Preparing a new Yuna attendance draft in the isolated development database.",
+      "Preparing a new Yuna attendance draft in the durable store database.",
     );
   }
 
@@ -421,7 +421,7 @@ export function AttendancePanel({
               <span>AUTHORIZED OPERATOR</span>
               <b>{adminUser.displayName}</b>
             </div>
-            <small>{adminUser.identityLabel} / OWNER ALLOWLIST</small>
+            <small>{adminUser.identityLabel} / REVERSE PROXY</small>
           </div>
 
           <ol className="ops-attendance-steps" aria-label="Attendance workflow">
@@ -517,9 +517,7 @@ export function AttendancePanel({
                 </button>
               )}
               {loadState === "auth_required" && (
-                <a href="/signin-with-chatgpt?return_to=%2Fadmin">
-                  SIGN IN AGAIN
-                </a>
+                <a href="/admin">REOPEN ADMIN LOGIN</a>
               )}
             </div>
           )}
@@ -640,7 +638,7 @@ export function AttendancePanel({
               <p className="ops-attendance-empty">Loading attendance…</p>
             ) : loadState === "auth_required" ? (
               <p className="ops-attendance-empty">
-                The owner session expired. Sign in again to read attendance.
+                Store access is missing. Reopen the admin login to continue.
               </p>
             ) : loadState === "forbidden" ? (
               <p className="ops-attendance-empty">
@@ -688,7 +686,7 @@ export function AttendancePanel({
               <p className="ops-attendance-empty">Loading audit history…</p>
             ) : loadState === "auth_required" ? (
               <p className="ops-attendance-empty">
-                Audit history requires a renewed owner session.
+                Audit history requires renewed store access.
               </p>
             ) : loadState === "forbidden" ? (
               <p className="ops-attendance-empty">
@@ -731,7 +729,7 @@ export function AttendancePanel({
       <div className="ops-attendance-summary" aria-label="Attendance status overview">
         {[
           [counts.draft, "DRAFT", "Editable attendance records"],
-          [counts.pending, "REVIEW", "Waiting for owner review"],
+          [counts.pending, "REVIEW", "Waiting for operator review"],
           [counts.public, "PUBLIC", "Visible on cast profiles"],
           [counts.cancelled, "CANCELLED", "Removed from public projection"],
         ].map(([value, label, detail], index) => (

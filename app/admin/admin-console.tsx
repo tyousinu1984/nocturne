@@ -157,9 +157,9 @@ export function AdminConsole({
   const [auditEntries, setAuditEntries] =
     useState<AuditEntry[]>(initialAudit);
   const [notice, setNotice] = useState(
-    "Authenticated operations console. Attendance writes use durable D1; profile revision data still resets on refresh.",
+    "Protected operations console. Attendance writes use durable local SQLite; profile revision data still resets on refresh.",
   );
-  const [attendanceLabel, setAttendanceLabel] = useState("D1 READY");
+  const [attendanceLabel, setAttendanceLabel] = useState("SQLITE READY");
 
   const actor = probeActors[role];
   const isDraftEditable = canEditDraft(revisionStatus, actor.id);
@@ -436,7 +436,7 @@ export function AdminConsole({
         <div className="ops-sidebar-note">
           <b>ALPHA BOUNDARY</b>
           <p>
-            One owner allowlist, one cast profile, one attendance date and one
+            One protected store login, one cast profile, one attendance date and one
             anonymous public projection.
           </p>
         </div>
@@ -450,9 +450,9 @@ export function AdminConsole({
           </div>
           {activeView === "attendance" ? (
             <div className="ops-role-switcher ops-authenticated-user">
-              <span>AUTHENTICATED OWNER</span>
+              <span>AUTHENTICATED OPERATOR</span>
               <b>{adminUser.displayName}</b>
-              <small>{adminUser.identityLabel} / SERVER ALLOWLIST</small>
+              <small>{adminUser.identityLabel} / SITE ACCESS CODE</small>
             </div>
           ) : (
             <label className="ops-role-switcher">

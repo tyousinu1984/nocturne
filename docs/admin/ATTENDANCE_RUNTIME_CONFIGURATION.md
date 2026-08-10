@@ -1,47 +1,40 @@
-# Attendance Runtime Configuration
+# Attendance runtime configuration
 
-Date: 2026-08-09
+Updated: 2026-08-10
 
-## Bindings
+## Node runtime
 
-- `.openai/hosting.json` declares the logical D1 binding as `DB`.
-- Local development uses a disposable Miniflare D1 database.
-- Production D1 is created and wired by Sites when a saved version is deployed.
+The production process runs the standalone bundle on loopback:
 
-## Authentication variables
+```text
+HOST=127.0.0.1
+PORT=4188
+NOCTURNE_DATABASE_PATH=~/Library/Application Support/NocturneTokyo/data/nocturne.sqlite
+```
 
-### `ADMIN_ALLOWED_USER_IDS`
+The database directory is mode `700`; the SQLite file is mode `600`. Startup
+enables foreign keys, WAL mode and a five-second busy timeout, then applies the
+two checked-in attendance migrations transactionally.
 
-Required in production. It contains one or more comma-separated,
-site-scoped `oai-authenticated-user-id` values.
+## Admin authentication
 
-The application fails closed when this variable is missing or when the signed-in
-user ID is not present. Account IDs shown in a Sites access policy must not be
-copied into this variable unless a controlled authenticated request verifies
-that the value matches the forwarded site-scoped user ID.
+Caddy protects `/admin`, `/admin/*` and `/api/admin/*` with Basic Auth. After
+successful authentication it removes the browser Authorization header and
+injects this local trust marker:
 
-### `NOCTURNE_DEV_AUTH`
+```text
+X-Nocturne-Admin-Authenticated: 1
+```
 
-Local development only. Starting the development server with value `1` injects
-the fixed `dev-owner-01` identity and enables disposable schema initialization.
+Both protected and public proxy branches delete any client-supplied copy of the
+marker before routing. The application accepts admin access only when the final
+trusted marker equals `1`.
 
-The Vite build injects this switch only for a non-production development server.
-A production build compiles it to `false`, so a runtime binding with the same
-name cannot enable the mock identity. The key must still remain absent from the
-production Sites environment.
+The Node listener stays on `127.0.0.1`, so the marker cannot be supplied over
+the public network without first passing through Caddy.
 
-The Worker removes any caller-supplied internal allowlist header and reconstructs
-it only from `ADMIN_ALLOWED_USER_IDS`. Browser requests therefore cannot forge
-the server-side allowlist.
+## Public projection
 
-## Production configuration
-
-The Attendance Alpha was deployed on 2026-08-09 with these completed controls:
-
-1. The Owner's site-scoped user ID was obtained through a controlled SIWC
-   self-identity request.
-2. `ADMIN_ALLOWED_USER_IDS` is stored as a secret Sites runtime value.
-3. `NOCTURNE_DEV_AUTH` is absent from Sites.
-4. Sites version 10 was saved from the reviewed and production-fixed commit.
-5. The hosted D1 migration and anonymous projection passed smoke testing.
-6. Sites version 5 remains the pre-attendance rollback version.
+`GET /api/public/attendance?artist=<slug>` exposes only published date and time
+fields. Internal notes, operator identity, review history and cancelled records
+remain private.

@@ -1,4 +1,3 @@
-import { getRuntimeEnvValue } from "../runtime-env.ts";
 import {
   assertAttendanceReason,
   assertValidAttendanceDraft,
@@ -725,9 +724,7 @@ export function createAttendanceStore(
 async function runtimeAttendanceStore() {
   try {
     const { getD1Binding } = await import("../../db");
-    return createAttendanceStore(getD1Binding(), {
-      initializeSchema: getRuntimeEnvValue("NOCTURNE_DEV_AUTH") === "1",
-    });
+    return createAttendanceStore(getD1Binding());
   } catch (error) {
     throw mapDatabaseError(error);
   }
