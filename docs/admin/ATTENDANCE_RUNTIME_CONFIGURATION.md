@@ -8,7 +8,7 @@ The production process runs the standalone bundle on loopback:
 
 ```text
 HOST=127.0.0.1
-PORT=4188
+PORT=4189
 NOCTURNE_DATABASE_PATH=~/Library/Application Support/NocturneTokyo/data/nocturne.sqlite
 ```
 

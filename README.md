@@ -44,7 +44,7 @@ The production build emits `dist/standalone/server.js`:
 
 ```bash
 npm run build
-HOST=127.0.0.1 PORT=4188 npm start
+HOST=127.0.0.1 PORT=4189 npm start
 ```
 
 `GET /health` verifies that the process can open SQLite and apply both current
@@ -52,7 +52,7 @@ migrations.
 
 ## Production shape
 
-- Runtime: standalone Node.js on `127.0.0.1:4188`
+- Runtime: standalone Node.js on `127.0.0.1:4189`
 - Process: LaunchAgent `cc.shinpei.nocturne-tokyo`
 - Persistent state: `~/Library/Application Support/NocturneTokyo`
 - Reverse proxy: Caddy managed site for `nocturne.shinpei.cc.cd`
