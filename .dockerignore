@@ -1,0 +1,11 @@
+# Mirrors .gitignore for the pieces that must never end up in a build
+# context or image layer, plus build output that should always be produced
+# fresh inside the container rather than copied stale from the host.
+node_modules
+dist
+.vinext
+.next
+.local-data
+.git
+*.tsbuildinfo
+npm-debug.log*

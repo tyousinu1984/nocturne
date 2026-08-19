@@ -18,18 +18,20 @@ provider.
 
 ## Data
 
-Attendance data is stored in SQLite. The process applies the checked-in
-Drizzle migrations at startup and records applied migration IDs in
-`nocturne_migrations`.
+Attendance data is stored in PostgreSQL. The process applies the checked-in
+Drizzle migrations at startup (guarded by a Postgres advisory lock, so
+multiple replicas starting at once don't race to apply the same migration
+twice) and records applied migration IDs in `nocturne_migrations`.
 
-Set an explicit writable path in production:
+Set the connection string:
 
 ```bash
-NOCTURNE_DATABASE_PATH='/Users/shinpei/Library/Application Support/NocturneTokyo/data/nocturne.sqlite'
+DATABASE_URL='postgres://user:password@host:5432/nocturne'
 ```
 
-When the variable is absent, local development uses
-`.local-data/nocturne.sqlite`.
+Local development and tests get a Postgres instance for free via
+`compose.yaml`'s `db` service — `docker compose run --rm dev npm test` and
+`docker compose up app` both default `DATABASE_URL` to it already.
 
 ## Development
 
@@ -40,6 +42,16 @@ npm run lint
 npm test
 ```
 
+If the host machine's Node version or npm's `optionalDependencies`
+resolution (see `Dockerfile`'s `deps` stage for a known npm bug this works
+around) get in the way, run the same commands inside the pinned `dev`
+container instead:
+
+```bash
+docker compose run --rm dev npm test
+docker compose run --rm dev npm run lint
+```
+
 The production build emits `dist/standalone/server.js`:
 
 ```bash
@@ -47,15 +59,27 @@ npm run build
 HOST=127.0.0.1 PORT=4189 npm start
 ```
 
-`GET /health` verifies that the process can open SQLite and apply both current
-migrations.
+`GET /health` verifies that the process can reach PostgreSQL and reports the
+currently applied migration count.
 
 ## Production shape
 
-- Runtime: standalone Node.js on `127.0.0.1:4189`
-- Process: LaunchAgent `cc.shinpei.nocturne-tokyo`
-- Persistent state: `~/Library/Application Support/NocturneTokyo`
-- Reverse proxy: Caddy managed site for `nocturne.shinpei.cc.cd`
+- Runtime: the standalone server (`dist/standalone/server.js`) running
+  inside the `app` service defined in `compose.yaml`, published only on
+  `127.0.0.1:4189` — see the warning comment in that file before touching
+  the port mapping
+- Process: LaunchAgent `cc.shinpei.nocturne-tokyo` runs
+  `scripts/start-production-docker.sh`, which reads the session secret from
+  Keychain and runs `docker compose up` (replaces the previous bare
+  `node dist/standalone/server.js` invocation; see
+  `scripts/nocturne-tokyo.launchagent.plist.template`)
+- Persistent state: PostgreSQL (connection configured via `DATABASE_URL`) —
+  the app container itself no longer needs a data bind mount; see the
+  in-progress migration off SQLite in this repo's history/plan notes
+- Reverse proxy: Caddy managed site for `nocturne.shinpei.cc.cd` — unchanged
+  by containerizing the Node process; Caddy still strips any
+  client-supplied `X-Nocturne-Admin-Authenticated` header and is the only
+  thing permitted to reach the app container
 - Public pages: no login
 - Admin: username `shop` plus the separate shop access code
 

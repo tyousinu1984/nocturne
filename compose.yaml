@@ -1,0 +1,89 @@
+services:
+  # Local/CI Postgres, replacing the SQLite file this app used to keep on
+  # disk. Pin the same major version intended for RDS in production so
+  # dev/CI and prod stay engine-version-matched.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nocturne
+      POSTGRES_PASSWORD: nocturne
+      POSTGRES_DB: nocturne
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nocturne -d nocturne"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Local development / test runner. Fixes the two host-environment problems
+  # a bare `npm test` runs into (Node version below package.json's
+  # engines.node minimum, and the npm optionalDependencies bug documented in
+  # the Dockerfile's `deps` stage) by pinning everything inside the image
+  # instead. Usage: `docker compose run --rm dev npm test` (or `npm run
+  # lint`, `npm run build`, etc. — anything from package.json's scripts).
+  dev:
+    build:
+      context: .
+      target: dev
+    working_dir: /app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://nocturne:nocturne@db:5432/nocturne
+    volumes:
+      - .:/app
+      - dev_node_modules:/app/node_modules
+    command: ["npm", "test"]
+
+  # Production runtime. Mirrors the topology documented in README.md under
+  # "Production shape": a loopback-only Node process sitting behind the
+  # existing host Caddy instance, which is the ONLY thing allowed to reach
+  # this service. Caddy strips any client-supplied
+  # X-Nocturne-Admin-Authenticated header and re-injects it only after real
+  # Basic Auth succeeds; the app trusts that header unconditionally
+  # (app/admin/access.ts). If this port is ever published on anything other
+  # than 127.0.0.1, that whole trust boundary is bypassed by anyone who can
+  # reach the port — do NOT change "127.0.0.1:4189:4189" to "4189:4189" or
+  # "0.0.0.0:4189:4189".
+  app:
+    build:
+      context: .
+      target: runtime
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4189:4189"
+    environment:
+      PORT: "4189"
+      # Defaults to the local compose `db` service so `docker compose up
+      # app` is turnkey for smoke-testing. Production overrides this to the
+      # real RDS endpoint via scripts/start-production-docker.sh — never
+      # hardcode a real connection string here.
+      DATABASE_URL: ${DATABASE_URL:-postgres://nocturne:nocturne@db:5432/nocturne}
+      # Not marked "required" at the compose level (`${VAR:?...}`) on
+      # purpose: that form is evaluated for the whole file, which would
+      # force every unrelated `docker compose` invocation (e.g. building or
+      # running the `dev` service) to also have this set. The app itself
+      # already fails closed without a valid secret — see sessionSecret() in
+      # app/staff/session.ts, which throws if it's absent or under 32 chars
+      # — so app startup still refuses to run insecurely.
+      NOCTURNE_SESSION_SECRET: ${NOCTURNE_SESSION_SECRET:-}
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4189/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  dev_node_modules:
+  db_data:

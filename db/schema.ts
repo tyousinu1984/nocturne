@@ -3,10 +3,10 @@ import {
   check,
   index,
   integer,
-  sqliteTable,
+  pgTable,
   text,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 import {
   attendanceActions,
   attendanceStatuses,
@@ -21,7 +21,18 @@ export const castAccountActions = [
   "login",
 ] as const;
 
-export const attendanceEntries = sqliteTable(
+// Timestamp-shaped columns below stay `text`, not native `timestamp`/
+// `timestamptz`, on purpose: every write path in attendance-store.ts /
+// cast-account-store.ts explicitly computes `new Date().toISOString()` in
+// JS and binds it as a parameter — the SQL-side CURRENT_TIMESTAMP default
+// is effectively dead code, never exercised. A native timestamptz column
+// would make node-postgres auto-parse reads into JS `Date` objects instead
+// of strings, silently changing every read path's return shape (JSON
+// responses, string equality in tests, ORDER BY behavior on ISO strings).
+// Staying on `text` keeps 100% of existing timestamp handling unchanged.
+const nowDefault = sql`CURRENT_TIMESTAMP::text`;
+
+export const attendanceEntries = pgTable(
   "attendance_entries",
   {
     id: text("id").primaryKey(),
@@ -44,8 +55,8 @@ export const attendanceEntries = sqliteTable(
     reviewedAt: text("reviewed_at"),
     publishedAt: text("published_at"),
     cancelledAt: text("cancelled_at"),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    createdAt: text("created_at").notNull().default(nowDefault),
+    updatedAt: text("updated_at").notNull().default(nowDefault),
   },
   (table) => [
     check(
@@ -73,10 +84,10 @@ export const attendanceEntries = sqliteTable(
   ],
 );
 
-export const attendanceEvents = sqliteTable(
+export const attendanceEvents = pgTable(
   "attendance_events",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     attendanceId: text("attendance_id")
       .notNull()
       .references(() => attendanceEntries.id, { onDelete: "cascade" }),
@@ -89,7 +100,7 @@ export const attendanceEvents = sqliteTable(
     entryVersion: integer("entry_version").notNull(),
     detail: text("detail").notNull().default(""),
     resultSnapshot: text("result_snapshot").notNull(),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    createdAt: text("created_at").notNull().default(nowDefault),
   },
   (table) => [
     check(
@@ -113,7 +124,7 @@ export const attendanceEvents = sqliteTable(
   ],
 );
 
-export const castAccounts = sqliteTable(
+export const castAccounts = pgTable(
   "cast_accounts",
   {
     id: text("id").primaryKey(),
@@ -125,8 +136,8 @@ export const castAccounts = sqliteTable(
       .default("active"),
     sessionVersion: integer("session_version").notNull().default(1),
     lastLoginAt: text("last_login_at"),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    createdAt: text("created_at").notNull().default(nowDefault),
+    updatedAt: text("updated_at").notNull().default(nowDefault),
   },
   (table) => [
     check(
@@ -142,17 +153,17 @@ export const castAccounts = sqliteTable(
   ],
 );
 
-export const castAccountEvents = sqliteTable(
+export const castAccountEvents = pgTable(
   "cast_account_events",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     accountId: text("account_id")
       .notNull()
       .references(() => castAccounts.id, { onDelete: "cascade" }),
     action: text("action", { enum: castAccountActions }).notNull(),
     actorUserId: text("actor_user_id").notNull(),
     detail: text("detail").notNull().default(""),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    createdAt: text("created_at").notNull().default(nowDefault),
   },
   (table) => [
     check(

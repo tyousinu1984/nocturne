@@ -11,12 +11,12 @@ import {
   staffLoginRateLimit,
   verifyStaffCredential,
 } from "../app/staff/session.ts";
-import { createSQLiteD1 } from "./helpers/sqlite-d1.mjs";
+import { createPostgresD1 } from "./helpers/postgres-d1.mjs";
 
 process.env.NOCTURNE_SESSION_SECRET = "test-session-secret-with-at-least-thirty-two-characters";
 
 test("cast credentials are hashed and session versions invalidate old tokens", async (t) => {
-  const d1 = createSQLiteD1();
+  const d1 = await createPostgresD1();
   t.after(() => d1.close());
   const store = createCastAccountStore(d1, { initializeSchema: true });
   const firstCode = generateTemporaryAccessCode();

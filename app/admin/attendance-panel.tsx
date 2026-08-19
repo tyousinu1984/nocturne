@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { artists } from "../data";
+import { useTranslations } from "../../i18n/context";
+import { newDraftNotice } from "../../i18n/messages";
+import type { Dictionary } from "../../i18n/dictionary-types";
 import {
   type AttendanceAction,
   type AttendanceEntryRecord,
@@ -47,15 +50,6 @@ type AttendanceLoadState =
   | "storage_unavailable"
   | "service_error";
 
-const statusLabels: Record<AttendanceStatus, string> = {
-  draft: "DRAFT",
-  pending: "PENDING REVIEW",
-  approved: "APPROVED",
-  published: "PUBLIC",
-  rejected: "REJECTED",
-  cancelled: "CANCELLED",
-};
-
 const statusStep: Record<AttendanceStatus, number> = {
   draft: 1,
   pending: 2,
@@ -92,14 +86,14 @@ function artistName(slug: string) {
   return artists.find((artist) => artist.slug === slug)?.name ?? slug;
 }
 
-function eventActionLabel(event: AttendanceEventRecord) {
+function eventActionLabel(event: AttendanceEventRecord, attendance: Dictionary["admin"]["attendance"]) {
   if (
     event.action === "save_draft" &&
     !event.actorUserId.startsWith("cast:")
   ) {
-    return "ADMIN UPDATE";
+    return attendance.adminUpdateLabel;
   }
-  return event.action.replaceAll("_", " ").toUpperCase();
+  return attendance.actionLabels[event.action];
 }
 
 export function AttendancePanel({
@@ -109,6 +103,9 @@ export function AttendancePanel({
   onNotice,
   onAuthenticationLost,
 }: AttendancePanelProps) {
+  const { locale, dictionary } = useTranslations();
+  const attendance = dictionary.admin.attendance;
+  const statusLabels = attendance.statusLabels;
   const [entries, setEntries] = useState<AttendanceEntryRecord[]>([]);
   const [events, setEvents] = useState<AttendanceEventRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -157,9 +154,9 @@ export function AttendancePanel({
       ? attendancePreview(selectedEntry, { serviceDate, startTime, endTime })
       : {
           kind: "unavailable" as const,
-          dateLabel: "CHECKING PROJECTION",
-          timeLabel: "LOADING ATTENDANCE SERVICE",
-          statusLabel: "CHECKING",
+          dateLabel: attendance.checkingProjection,
+          timeLabel: attendance.loadingService,
+          statusLabel: attendance.checking,
         };
 
   const selectEntry = useCallback((entry: AttendanceEntryRecord) => {
@@ -194,10 +191,10 @@ export function AttendancePanel({
           : "service_error";
       setLoadState(nextState);
       setLoadError(message);
-      onNotice("ATTENDANCE ACCESS", message);
+      onNotice(attendance.attendanceAccessLabel, message);
       if (nextState === "auth_required") onAuthenticationLost?.();
     },
-    [onAuthenticationLost, onNotice],
+    [onAuthenticationLost, onNotice, attendance.attendanceAccessLabel],
   );
 
   const loadAttendance = useCallback(async () => {
@@ -215,7 +212,7 @@ export function AttendancePanel({
         handleLoadFailure(
           response.status,
           body.code,
-          body.error ?? "Attendance could not be loaded.",
+          body.error ?? attendance.attendanceCouldNotLoad,
         );
         return;
       }
@@ -226,10 +223,10 @@ export function AttendancePanel({
       handleLoadFailure(
         0,
         undefined,
-        error instanceof Error ? error.message : "Attendance could not be loaded.",
+        error instanceof Error ? error.message : attendance.attendanceCouldNotLoad,
       );
     }
-  }, [applyAttendanceData, endpoint, handleLoadFailure]);
+  }, [applyAttendanceData, endpoint, handleLoadFailure, attendance.attendanceCouldNotLoad]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadAttendance(), 0);
@@ -244,7 +241,7 @@ export function AttendancePanel({
     setNote("");
     setReason("");
     setCommandError("");
-    onNotice("NEW ATTENDANCE", `Preparing a new ${selectedArtistName} draft.`);
+    onNotice(attendance.newAttendanceNotice, newDraftNotice(locale, selectedArtistName));
   }
 
   async function runCommand(action: AttendanceAction) {
@@ -281,7 +278,7 @@ export function AttendancePanel({
         currentEntry?: AttendanceEntryRecord;
       };
       if (!response.ok) {
-        const message = body.error ?? "Attendance command failed.";
+        const message = body.error ?? attendance.attendanceCommandFailed;
         const failureKind = attendanceFailureKind(response.status, body.code);
         if (failureKind !== "command_error") {
           handleLoadFailure(response.status, body.code, message);
@@ -312,9 +309,9 @@ export function AttendancePanel({
       onNotice(statusLabels[body.entry.status], body.event.detail);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Attendance command failed.";
+        error instanceof Error ? error.message : attendance.attendanceCommandFailed;
       setCommandError(message);
-      onNotice("COMMAND BLOCKED", message);
+      onNotice(attendance.commandBlocked, message);
     } finally {
       setBusyAction(null);
     }
@@ -330,34 +327,34 @@ export function AttendancePanel({
   return (
     <section className="ops-attendance" aria-busy={loadState === "loading"}>
       <div className="ops-attendance-summary">
-        <article><b>{counts.drafts}</b><span>DRAFTS</span><p>Editable by cast or operator</p></article>
-        <article className={counts.pending ? "is-alert" : ""}><b>{counts.pending}</b><span>WAITING REVIEW</span><p>Administrator decision required</p></article>
-        <article><b>{counts.approved}</b><span>APPROVED</span><p>Ready for publication</p></article>
-        <article><b>{counts.public}</b><span>PUBLIC</span><p>Visible on profile</p></article>
+        <article><b>{counts.drafts}</b><span>{attendance.summary.drafts}</span><p>{attendance.summary.draftsNote}</p></article>
+        <article className={counts.pending ? "is-alert" : ""}><b>{counts.pending}</b><span>{attendance.summary.waitingReview}</span><p>{attendance.summary.waitingReviewNote}</p></article>
+        <article><b>{counts.approved}</b><span>{attendance.summary.approved}</span><p>{attendance.summary.approvedNote}</p></article>
+        <article><b>{counts.public}</b><span>{attendance.summary.public}</span><p>{attendance.summary.publicNote}</p></article>
       </div>
 
       <div className="ops-attendance-grid">
         <section className="ops-attendance-editor">
           <div className="ops-panel-heading">
-            <span>{actorKind === "cast" ? "MY ATTENDANCE" : "ATTENDANCE CONTROL"}</span>
+            <span>{actorKind === "cast" ? attendance.myAttendance : attendance.attendanceControl}</span>
             <h2>{selectedEntry ? artistName(selectedEntry.artistSlug) : selectedArtistName}</h2>
             <em>
               {selectedEntry
                 ? `V${selectedEntry.version} / ${statusLabels[selectedEntry.status]}`
-                : "NEW DRAFT"}
+                : attendance.newDraft}
             </em>
           </div>
 
           <div className="ops-identity-strip">
             <div>
-              <span>{actorKind === "cast" ? "SIGNED-IN CAST" : "AUTHORIZED OPERATOR"}</span>
+              <span>{actorKind === "cast" ? attendance.signedInCast : attendance.authorizedOperator}</span>
               <b>{identity.displayName}</b>
             </div>
             <small>{identity.identityLabel}</small>
           </div>
 
           <ol className="ops-attendance-steps" aria-label="Attendance workflow">
-            {["DRAFT", "REVIEW", "APPROVED", "PUBLIC"].map((label, index) => (
+            {[attendance.stepDraft, attendance.stepReview, attendance.stepApproved, attendance.stepPublic].map((label, index) => (
               <li className={activeStep >= index + 1 ? "is-complete" : ""} key={label}>
                 <b>0{index + 1}</b><span>{label}</span>
               </li>
@@ -366,7 +363,7 @@ export function AttendancePanel({
 
           <div className="ops-form-grid ops-attendance-form">
             <label>
-              <span>CAST PROFILE</span>
+              <span>{attendance.castProfileLabel}</span>
               {actorKind === "admin" && !selectedEntry ? (
                 <select
                   aria-label="Cast profile"
@@ -385,87 +382,87 @@ export function AttendancePanel({
               )}
             </label>
             <label>
-              <span>SERVICE DATE</span>
+              <span>{attendance.serviceDateLabel}</span>
               <input type="date" value={serviceDate} disabled={!editorCanEdit || interactionLocked} onChange={(event) => setServiceDate(event.target.value)} />
             </label>
             <label>
-              <span>START TIME</span>
+              <span>{attendance.startTimeLabel}</span>
               <input type="time" value={startTime} disabled={!editorCanEdit || interactionLocked} onChange={(event) => setStartTime(event.target.value)} />
             </label>
             <label>
-              <span>END TIME</span>
+              <span>{attendance.endTimeLabel}</span>
               <input type="time" value={endTime} disabled={!editorCanEdit || interactionLocked} onChange={(event) => setEndTime(event.target.value)} />
             </label>
             <label className="is-wide">
-              <span>PRIVATE NOTE</span>
-              <textarea rows={3} maxLength={500} value={note} disabled={!editorCanEdit || interactionLocked} placeholder="Optional operational note." onChange={(event) => setNote(event.target.value)} />
+              <span>{attendance.privateNoteLabel}</span>
+              <textarea rows={3} maxLength={500} value={note} disabled={!editorCanEdit || interactionLocked} placeholder={attendance.privateNotePlaceholder} onChange={(event) => setNote(event.target.value)} />
             </label>
             {actorKind === "admin" && selectedEntry && (selectedEntry.status === "pending" || selectedEntry.status === "published") && (
               <label className="is-wide">
-                <span>{selectedEntry.status === "pending" ? "REJECTION REASON" : "CANCELLATION REASON"}</span>
-                <textarea rows={2} maxLength={500} value={reason} disabled={interactionLocked} placeholder="Required for reject or cancel." onChange={(event) => setReason(event.target.value)} />
+                <span>{selectedEntry.status === "pending" ? attendance.rejectionReasonLabel : attendance.cancellationReasonLabel}</span>
+                <textarea rows={2} maxLength={500} value={reason} disabled={interactionLocked} placeholder={attendance.reasonPlaceholder} onChange={(event) => setReason(event.target.value)} />
               </label>
             )}
           </div>
 
           {selectedEntry?.rejectionReason && (
-            <div className="ops-attendance-error"><b>REVIEW NOTE</b><p>{selectedEntry.rejectionReason}</p></div>
+            <div className="ops-attendance-error"><b>{attendance.reviewNote}</b><p>{selectedEntry.rejectionReason}</p></div>
           )}
           {(loadError || commandError) && (
             <div className="ops-attendance-error" role="alert">
-              <b>ATTENTION REQUIRED</b><p>{loadError || commandError}</p>
-              {loadState !== "auth_required" && <button type="button" onClick={loadAttendance}>RETRY LOAD</button>}
+              <b>{attendance.attentionRequired}</b><p>{loadError || commandError}</p>
+              {loadState !== "auth_required" && <button type="button" onClick={loadAttendance}>{attendance.retryLoad}</button>}
             </div>
           )}
 
           <div className="ops-attendance-actions">
             {!selectedEntry && (
-              <button type="button" disabled={interactionLocked} onClick={() => runCommand("create")}>{busyAction === "create" ? "CREATING…" : "CREATE DRAFT"}</button>
+              <button type="button" disabled={interactionLocked} onClick={() => runCommand("create")}>{busyAction === "create" ? attendance.creating : attendance.createDraft}</button>
             )}
             {selectedEntry?.status === "draft" && (
               <>
-                <button type="button" className="is-secondary" disabled={interactionLocked} onClick={() => runCommand("save_draft")}>{busyAction === "save_draft" ? "SAVING…" : actorKind === "admin" ? "SAVE CHANGES" : "SAVE DRAFT"}</button>
-                <button type="button" disabled={interactionLocked} onClick={() => runCommand("submit")}>{busyAction === "submit" ? "SUBMITTING…" : "SUBMIT FOR REVIEW"}</button>
+                <button type="button" className="is-secondary" disabled={interactionLocked} onClick={() => runCommand("save_draft")}>{busyAction === "save_draft" ? attendance.saving : actorKind === "admin" ? attendance.saveChanges : attendance.saveDraft}</button>
+                <button type="button" disabled={interactionLocked} onClick={() => runCommand("submit")}>{busyAction === "submit" ? attendance.submitting : attendance.submitForReview}</button>
               </>
             )}
             {actorKind === "admin" && selectedEntry?.status === "pending" && (
               <>
-                <button type="button" className="is-ghost" disabled={interactionLocked} onClick={() => runCommand("save_draft")}>{busyAction === "save_draft" ? "SAVING…" : "SAVE CHANGES"}</button>
-                <button type="button" className="is-secondary" disabled={interactionLocked || !reason.trim()} onClick={() => runCommand("reject")}>{busyAction === "reject" ? "REJECTING…" : "REJECT WITH NOTE"}</button>
-                <button type="button" disabled={interactionLocked} onClick={() => runCommand("approve")}>{busyAction === "approve" ? "APPROVING…" : "APPROVE"}</button>
+                <button type="button" className="is-ghost" disabled={interactionLocked} onClick={() => runCommand("save_draft")}>{busyAction === "save_draft" ? attendance.saving : attendance.saveChanges}</button>
+                <button type="button" className="is-secondary" disabled={interactionLocked || !reason.trim()} onClick={() => runCommand("reject")}>{busyAction === "reject" ? attendance.rejecting : attendance.rejectWithNote}</button>
+                <button type="button" disabled={interactionLocked} onClick={() => runCommand("approve")}>{busyAction === "approve" ? attendance.approving : attendance.approve}</button>
               </>
             )}
             {actorKind === "admin" && selectedEntry?.status === "approved" && (
               <>
-                <button type="button" className="is-secondary" disabled={interactionLocked} onClick={() => runCommand("save_draft")}>{busyAction === "save_draft" ? "SAVING…" : "SAVE CHANGES"}</button>
-                <button type="button" disabled={interactionLocked} onClick={() => runCommand("publish")}>{busyAction === "publish" ? "PUBLISHING…" : "PUBLISH TO PROFILE"}</button>
+                <button type="button" className="is-secondary" disabled={interactionLocked} onClick={() => runCommand("save_draft")}>{busyAction === "save_draft" ? attendance.saving : attendance.saveChanges}</button>
+                <button type="button" disabled={interactionLocked} onClick={() => runCommand("publish")}>{busyAction === "publish" ? attendance.publishing : attendance.publishToProfile}</button>
               </>
             )}
             {actorKind === "admin" && selectedEntry?.status === "published" && (
               <>
-                <button type="button" className="is-secondary" disabled={interactionLocked} onClick={() => runCommand("save_draft")}>{busyAction === "save_draft" ? "SAVING…" : "SAVE LIVE CHANGES"}</button>
-                <button type="button" className="is-danger" disabled={interactionLocked || !reason.trim()} onClick={() => runCommand("cancel")}>{busyAction === "cancel" ? "CANCELLING…" : "CANCEL PUBLIC SHIFT"}</button>
+                <button type="button" className="is-secondary" disabled={interactionLocked} onClick={() => runCommand("save_draft")}>{busyAction === "save_draft" ? attendance.saving : attendance.saveLiveChanges}</button>
+                <button type="button" className="is-danger" disabled={interactionLocked || !reason.trim()} onClick={() => runCommand("cancel")}>{busyAction === "cancel" ? attendance.cancelling : attendance.cancelPublicShift}</button>
               </>
             )}
             {(actorKind === "cast" || actorKind === "admin") && (
-              <button type="button" className="is-ghost" disabled={interactionLocked} onClick={startNewDraft}>NEW ATTENDANCE</button>
+              <button type="button" className="is-ghost" disabled={interactionLocked} onClick={startNewDraft}>{attendance.newAttendance}</button>
             )}
           </div>
         </section>
 
         <aside className="ops-attendance-side">
           <section className="ops-attendance-preview">
-            <span>PUBLIC PROFILE PROJECTION</span>
+            <span>{attendance.publicProjectionLabel}</span>
             <div className={`ops-attendance-preview-card${preview.kind === "removed" ? " is-removed" : preview.kind === "unavailable" ? " is-unavailable" : ""}`}>
-              <small>{selectedArtistName.toUpperCase()} / WEEKLY SCHEDULE</small>
+              <small>{selectedArtistName.toUpperCase()} / {attendance.weeklyScheduleSuffix}</small>
               <b>{preview.dateLabel}</b><strong>{preview.timeLabel}</strong><em>{preview.statusLabel}</em>
             </div>
-            <p>Public visitors receive published date and time only. Notes and review history stay private.</p>
+            <p>{attendance.publicProjectionNote}</p>
           </section>
 
           <section className="ops-attendance-records">
-            <div className="ops-attendance-side-heading"><span>{actorKind === "cast" ? "MY RECORDS" : "ALL SCHEDULES"}</span><button type="button" disabled={interactionLocked} onClick={loadAttendance}>REFRESH</button></div>
-            {loadState === "loading" ? <p className="ops-attendance-empty">Loading attendance…</p> : entries.length === 0 ? <p className="ops-attendance-empty">No attendance records yet.</p> : (
+            <div className="ops-attendance-side-heading"><span>{actorKind === "cast" ? attendance.myRecords : attendance.allSchedules}</span><button type="button" disabled={interactionLocked} onClick={loadAttendance}>{attendance.refresh}</button></div>
+            {loadState === "loading" ? <p className="ops-attendance-empty">{attendance.loadingAttendance}</p> : entries.length === 0 ? <p className="ops-attendance-empty">{attendance.noRecordsYet}</p> : (
               <div className="ops-attendance-record-list">
                 {entries.map((entry) => (
                   <button type="button" className={entry.id === selectedId ? "is-active" : ""} key={entry.id} onClick={() => selectEntry(entry)}>
@@ -477,9 +474,9 @@ export function AttendancePanel({
           </section>
 
           <section className="ops-attendance-timeline">
-            <span>APPEND-ONLY EVENTS</span>
-            {selectedEvents.length === 0 ? <p className="ops-attendance-empty">Select a record to view history.</p> : selectedEvents.map((event) => (
-              <article key={event.id}><b>{eventActionLabel(event)}</b><small>{event.actorUserId} / {eventDate(event.createdAt).toLocaleString("en-GB", { timeZone: "Asia/Tokyo" })}</small><p>{event.detail}</p></article>
+            <span>{attendance.appendOnlyEvents}</span>
+            {selectedEvents.length === 0 ? <p className="ops-attendance-empty">{attendance.selectRecordToViewHistory}</p> : selectedEvents.map((event) => (
+              <article key={event.id}><b>{eventActionLabel(event, attendance)}</b><small>{event.actorUserId} / {eventDate(event.createdAt).toLocaleString("en-GB", { timeZone: "Asia/Tokyo" })}</small><p>{event.detail}</p></article>
             ))}
           </section>
         </aside>

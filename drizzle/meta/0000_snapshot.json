@@ -1,53 +1,48 @@
 {
-  "version": "6",
-  "dialect": "sqlite",
-  "id": "17c4e028-f573-4063-897b-6e45d31ee228",
+  "id": "7ed17155-006c-4a24-8125-d65b80251f68",
   "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
   "tables": {
-    "attendance_entries": {
+    "public.attendance_entries": {
       "name": "attendance_entries",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
           "type": "text",
           "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "artist_slug": {
           "name": "artist_slug",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "service_date": {
           "name": "service_date",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "start_time": {
           "name": "start_time",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "end_time": {
           "name": "end_time",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "status": {
           "name": "status",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
           "default": "'draft'"
         },
         "version": {
@@ -55,136 +50,167 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
           "default": 1
         },
         "submitted_by": {
           "name": "submitted_by",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": false
         },
         "reviewed_by": {
           "name": "reviewed_by",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": false
         },
         "note": {
           "name": "note",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
           "default": "''"
         },
         "rejection_reason": {
           "name": "rejection_reason",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": false
         },
         "cancellation_reason": {
           "name": "cancellation_reason",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": false
         },
         "created_by": {
           "name": "created_by",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "last_event_key": {
           "name": "last_event_key",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "submitted_at": {
           "name": "submitted_at",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": false
         },
         "reviewed_at": {
           "name": "reviewed_at",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": false
         },
         "published_at": {
           "name": "published_at",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": false
         },
         "cancelled_at": {
           "name": "cancelled_at",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP"
+          "default": "CURRENT_TIMESTAMP::text"
         },
         "updated_at": {
           "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP"
+          "default": "CURRENT_TIMESTAMP::text"
         }
       },
       "indexes": {
         "uq_attendance_entries_active_artist_date": {
           "name": "uq_attendance_entries_active_artist_date",
           "columns": [
-            "artist_slug",
-            "service_date"
+            {
+              "expression": "artist_slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "service_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
           ],
           "isUnique": true,
-          "where": "\"attendance_entries\".\"status\" NOT IN ('rejected', 'cancelled')"
+          "where": "\"attendance_entries\".\"status\" NOT IN ('rejected', 'cancelled')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "idx_attendance_entries_public": {
           "name": "idx_attendance_entries_public",
           "columns": [
-            "artist_slug",
-            "service_date",
-            "start_time"
+            {
+              "expression": "artist_slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "service_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "start_time",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
           ],
           "isUnique": false,
-          "where": "\"attendance_entries\".\"status\" = 'published'"
+          "where": "\"attendance_entries\".\"status\" = 'published'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "idx_attendance_entries_status_date": {
           "name": "idx_attendance_entries_status_date",
           "columns": [
-            "status",
-            "service_date"
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "service_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
           ],
-          "isUnique": false
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
+      "policies": {},
       "checkConstraints": {
         "attendance_entries_time_order": {
           "name": "attendance_entries_time_order",
@@ -198,107 +224,141 @@
           "name": "attendance_entries_status_valid",
           "value": "\"attendance_entries\".\"status\" IN ('draft', 'pending', 'approved', 'published', 'rejected', 'cancelled')"
         }
-      }
+      },
+      "isRLSEnabled": false
     },
-    "attendance_events": {
+    "public.attendance_events": {
       "name": "attendance_events",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
           "type": "integer",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": true
+          "identity": {
+            "type": "always",
+            "name": "attendance_events_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
         },
         "attendance_id": {
           "name": "attendance_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "idempotency_key": {
           "name": "idempotency_key",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "request_fingerprint": {
           "name": "request_fingerprint",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "action": {
           "name": "action",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "from_status": {
           "name": "from_status",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": false
         },
         "to_status": {
           "name": "to_status",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "actor_user_id": {
           "name": "actor_user_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "entry_version": {
           "name": "entry_version",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "notNull": true
         },
         "detail": {
           "name": "detail",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
           "default": "''"
+        },
+        "result_snapshot": {
+          "name": "result_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP"
+          "default": "CURRENT_TIMESTAMP::text"
         }
       },
       "indexes": {
         "uq_attendance_events_idempotency": {
           "name": "uq_attendance_events_idempotency",
           "columns": [
-            "idempotency_key"
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
           ],
-          "isUnique": true
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "idx_attendance_events_entry_created": {
           "name": "idx_attendance_events_entry_created",
           "columns": [
-            "attendance_id",
-            "created_at",
-            "id"
+            {
+              "expression": "attendance_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
           ],
-          "isUnique": false
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -318,6 +378,7 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
+      "policies": {},
       "checkConstraints": {
         "attendance_events_action_valid": {
           "name": "attendance_events_action_valid",
@@ -331,17 +392,239 @@
           "name": "attendance_events_from_status_valid",
           "value": "\"attendance_events\".\"from_status\" IS NULL OR \"attendance_events\".\"from_status\" IN ('draft', 'pending', 'approved', 'published', 'rejected', 'cancelled')"
         }
-      }
+      },
+      "isRLSEnabled": false
+    },
+    "public.cast_account_events": {
+      "name": "cast_account_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "cast_account_events_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "detail": {
+          "name": "detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_TIMESTAMP::text"
+        }
+      },
+      "indexes": {
+        "idx_cast_account_events_account_created": {
+          "name": "idx_cast_account_events_account_created",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "cast_account_events_account_id_cast_accounts_id_fk": {
+          "name": "cast_account_events_account_id_cast_accounts_id_fk",
+          "tableFrom": "cast_account_events",
+          "tableTo": "cast_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "cast_account_events_action_valid": {
+          "name": "cast_account_events_action_valid",
+          "value": "\"cast_account_events\".\"action\" IN ('create', 'rotate_credential', 'enable', 'disable', 'login')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.cast_accounts": {
+      "name": "cast_accounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "artist_slug": {
+          "name": "artist_slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "credential_hash": {
+          "name": "credential_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "session_version": {
+          "name": "session_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "last_login_at": {
+          "name": "last_login_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_TIMESTAMP::text"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_TIMESTAMP::text"
+        }
+      },
+      "indexes": {
+        "uq_cast_accounts_artist_slug": {
+          "name": "uq_cast_accounts_artist_slug",
+          "columns": [
+            {
+              "expression": "artist_slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_cast_accounts_status": {
+          "name": "idx_cast_accounts_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "cast_accounts_status_valid": {
+          "name": "cast_accounts_status_valid",
+          "value": "\"cast_accounts\".\"status\" IN ('active', 'disabled')"
+        },
+        "cast_accounts_session_version_positive": {
+          "name": "cast_accounts_session_version_positive",
+          "value": "\"cast_accounts\".\"session_version\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
     }
   },
-  "views": {},
   "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
   "_meta": {
+    "columns": {},
     "schemas": {},
-    "tables": {},
-    "columns": {}
-  },
-  "internal": {
-    "indexes": {}
+    "tables": {}
   }
 }

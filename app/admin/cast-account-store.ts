@@ -12,31 +12,35 @@ type AccountMutation = {
   actorUserId: string;
 };
 
+// Aliases are double-quoted so Postgres preserves the camelCase spelling —
+// see the matching comment on attendance-store.ts's entrySelect/eventSelect.
 const accountSelect = `
   SELECT
     id,
-    artist_slug AS artistSlug,
-    display_name AS displayName,
-    credential_hash AS credentialHash,
+    artist_slug AS "artistSlug",
+    display_name AS "displayName",
+    credential_hash AS "credentialHash",
     status,
-    session_version AS sessionVersion,
-    last_login_at AS lastLoginAt,
-    created_at AS createdAt,
-    updated_at AS updatedAt
+    session_version AS "sessionVersion",
+    last_login_at AS "lastLoginAt",
+    created_at AS "createdAt",
+    updated_at AS "updatedAt"
   FROM cast_accounts
 `;
 
 const eventSelect = `
   SELECT
     id,
-    account_id AS accountId,
+    account_id AS "accountId",
     action,
-    actor_user_id AS actorUserId,
+    actor_user_id AS "actorUserId",
     detail,
-    created_at AS createdAt
+    created_at AS "createdAt"
   FROM cast_account_events
 `;
 
+// Kept as Postgres DDL, matching drizzle/0000_round_lily_hollister.sql —
+// see the matching comment on attendanceDevelopmentSchemaStatements.
 export const castAccountDevelopmentSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS cast_accounts (
     id text PRIMARY KEY NOT NULL,
@@ -46,8 +50,8 @@ export const castAccountDevelopmentSchemaStatements = [
     status text DEFAULT 'active' NOT NULL,
     session_version integer DEFAULT 1 NOT NULL,
     last_login_at text,
-    created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at text DEFAULT CURRENT_TIMESTAMP::text NOT NULL,
+    updated_at text DEFAULT CURRENT_TIMESTAMP::text NOT NULL,
     CONSTRAINT cast_accounts_status_valid CHECK(cast_accounts.status IN ('active', 'disabled')),
     CONSTRAINT cast_accounts_session_version_positive CHECK(cast_accounts.session_version >= 1)
   )`,
@@ -56,18 +60,18 @@ export const castAccountDevelopmentSchemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_cast_accounts_status
     ON cast_accounts (status)`,
   `CREATE TABLE IF NOT EXISTS cast_account_events (
-    id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY NOT NULL,
     account_id text NOT NULL,
     action text NOT NULL,
     actor_user_id text NOT NULL,
     detail text DEFAULT '' NOT NULL,
-    created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at text DEFAULT CURRENT_TIMESTAMP::text NOT NULL,
     CONSTRAINT cast_account_events_action_valid CHECK(cast_account_events.action IN ('create', 'rotate_credential', 'enable', 'disable', 'login')),
-    FOREIGN KEY (account_id) REFERENCES cast_accounts(id) ON UPDATE no action ON DELETE cascade
+    CONSTRAINT cast_account_events_account_id_cast_accounts_id_fk
+      FOREIGN KEY (account_id) REFERENCES cast_accounts(id) ON UPDATE no action ON DELETE cascade
   )`,
   `CREATE INDEX IF NOT EXISTS idx_cast_account_events_account_created
     ON cast_account_events (account_id, created_at, id)`,
-  "PRAGMA optimize",
 ] as const;
 
 export function createCastAccountStore(
@@ -282,7 +286,7 @@ export function createCastAccountStore(
 async function runtimeCastAccountStore() {
   try {
     const { getD1Binding } = await import("../../db");
-    return createCastAccountStore(getD1Binding());
+    return createCastAccountStore(await getD1Binding());
   } catch (error) {
     throw mapCastDatabaseError(error);
   }
@@ -323,11 +327,12 @@ export async function recordCastLogin(accountId: string) {
 }
 
 function mapCastDatabaseError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  if (
-    message.includes("uq_cast_accounts_artist_slug") ||
-    message.includes("UNIQUE constraint failed: cast_accounts.artist_slug")
-  ) {
+  // See the matching comment in attendance-store.ts's mapDatabaseError():
+  // Postgres reports unique violations via SQLSTATE 23505 + constraint
+  // name, not SQLite's error text.
+  const code = (error as { code?: string } | null)?.code;
+  const constraint = (error as { constraint?: string } | null)?.constraint;
+  if (code === "23505" && constraint === "uq_cast_accounts_artist_slug") {
     return new CastAccountError(
       "account_exists",
       "This cast profile already has an account.",

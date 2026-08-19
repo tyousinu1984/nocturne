@@ -21,12 +21,12 @@ test("attendance command policy rejects cross-origin browser writes", () => {
   );
 });
 
-test("attendance command policy permits non-browser clients without Origin", () => {
+test("attendance command policy rejects requests without an Origin header", () => {
   assert.equal(
     isSameOriginCommandRequest({
       origin: null,
       requestUrl: "https://nocturne.shinpei.cc.cd/api/admin/attendance",
     }),
-    true,
+    false,
   );
 });

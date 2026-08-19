@@ -1,15 +1,15 @@
-import { getSQLiteHealth } from "../../db/sqlite-d1";
+import { getPostgresHealth } from "../../db/postgres-d1";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const migrationState = await getSQLiteHealth();
+    const migrationState = await getPostgresHealth();
     return Response.json(
       {
         status: "ok",
         app: "nocturne-tokyo",
-        storage: "sqlite",
+        storage: "postgres",
         migrations: Number(migrationState?.total ?? 0),
       },
       { headers: { "cache-control": "no-store" } },

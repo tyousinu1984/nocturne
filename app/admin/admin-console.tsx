@@ -1,8 +1,28 @@
-/* eslint-disable @next/next/no-html-link-for-pages, @next/next/no-img-element */
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
 import { artists } from "../data";
+import { useTranslations } from "../../i18n/context";
+import type { Dictionary } from "../../i18n/dictionary-types";
+import type { Locale } from "../../i18n/locales";
+import {
+  approvalBlockedDetail,
+  approvedAuditDetail,
+  approvedNotice,
+  draftUpdatedDetail,
+  profilePreviewAlt,
+  publishedAuditDetail,
+  publishedNotice,
+  rollbackAuditDetail,
+  rollbackNotice,
+  roleChangedNotice,
+  submittedAuditDetail,
+  submittedNotice,
+  suppliedPhotoAlt,
+  takedownAuditDetail,
+  takedownNotice,
+} from "../../i18n/messages";
 import { AttendancePanel } from "./attendance-panel";
 import { CastAccountPanel } from "./cast-account-panel";
 import {
@@ -36,79 +56,15 @@ type AuditEntry = {
   time: string;
 };
 
-const navItems: Array<{
-  id: AdminView;
-  number: string;
-  label: string;
-  hint: string;
-}> = [
-  { id: "queue", number: "01", label: "WORK QUEUE", hint: "What needs action" },
-  {
-    id: "attendance",
-    number: "02",
-    label: "ATTENDANCE",
-    hint: "Create, edit and review",
-  },
-  { id: "access", number: "03", label: "STAFF ACCESS", hint: "Identity and permissions" },
-  { id: "content", number: "04", label: "CAST & MEDIA", hint: "Edit one profile" },
-  { id: "release", number: "05", label: "RELEASE", hint: "Preview and publish" },
-  {
-    id: "governance",
-    number: "06",
-    label: "GOVERNANCE",
-    hint: "Rights and session log",
-  },
-];
-
-const revisionStatusCopy: Record<RevisionStatus, string> = {
-  draft: "DRAFT",
-  pending: "PENDING REVIEW",
-  approved: "APPROVED",
-};
-
-const publicationStatusCopy: Record<PublicationStatus, string> = {
-  "baseline-live": "BASELINE REVISION LIVE",
-  "revision-live": "PROBE REVISION LIVE",
-  "rolled-back": "ROLLED BACK",
-  "taken-down": "EMERGENCY TAKEDOWN",
-};
-
-const probeActors: Record<
-  ProbeRole,
-  { id: ProbeActorId; label: string; scope: string }
-> = {
-  editor: {
-    id: "editor-01",
-    label: "Content Editor",
-    scope: "Draft and submit",
-  },
-  reviewer: {
-    id: "reviewer-01",
-    label: "Operations Reviewer",
-    scope: "Approve and recover",
-  },
+const probeActorIds: Record<ProbeRole, ProbeActorId> = {
+  editor: "editor-01",
+  reviewer: "reviewer-01",
 };
 
 const photos = [
   "/photos-preview/yuna-01.jpg",
   "/photos-preview/yuna-02.jpg",
   "/photos-preview/yuna-03.jpg",
-];
-
-const initialAudit: AuditEntry[] = [
-  {
-    action: "SESSION SEEDED",
-    actor: "Lead Agent",
-    detail:
-      "One-profile simulated workflow initialized. This timeline resets on refresh.",
-    time: "TODAY / 09:20",
-  },
-  {
-    action: "RIGHTS CONFIRMATION",
-    actor: "Human Owner",
-    detail: "Adult status and publication permission confirmed for supplied photos.",
-    time: "TODAY / 09:05",
-  },
 ];
 
 function nowLabel() {
@@ -127,6 +83,29 @@ export function AdminConsole({
     identityLabel: string;
   };
 }) {
+  const { locale, dictionary } = useTranslations();
+  const admin = dictionary.admin;
+
+  const probeActors: Record<ProbeRole, { id: ProbeActorId; label: string; scope: string }> = {
+    editor: {
+      id: "editor-01",
+      label: "Content Editor",
+      scope: admin.access.castScopeTitle,
+    },
+    reviewer: {
+      id: "reviewer-01",
+      label: "Operations Reviewer",
+      scope: admin.access.adminScopeTitle,
+    },
+  };
+
+  const initialAudit: AuditEntry[] = admin.auditSeed.map((seed, index) => ({
+    action: seed.action,
+    actor: index === 0 ? "Lead Agent" : "Human Owner",
+    detail: seed.detail,
+    time: index === 0 ? "TODAY / 09:20" : "TODAY / 09:05",
+  }));
+
   const yuna = artists.find((artist) => artist.slug === "yuna") ?? artists[0];
   const baselineSnapshot: ProfileSnapshot = {
     revisionId: "04",
@@ -160,10 +139,10 @@ export function AdminConsole({
   const [auditEntries, setAuditEntries] =
     useState<AuditEntry[]>(initialAudit);
   const [notice, setNotice] = useState(
-    "Protected operations console. Attendance writes use durable local SQLite; profile revision data still resets on refresh.",
+    "Protected operations console. Attendance writes use durable PostgreSQL storage; profile revision data still resets on refresh.",
   );
-  const [attendanceLabel, setAttendanceLabel] = useState("SQLITE READY");
-  const [accessLabel, setAccessLabel] = useState("ACCESS CONTROL");
+  const [attendanceLabel, setAttendanceLabel] = useState("POSTGRES READY");
+  const [accessLabel, setAccessLabel] = useState(admin.access.title);
   const [accessNotice, setAccessNotice] = useState(
     "Create cast identities, rotate access codes and invalidate sessions from one protected view.",
   );
@@ -178,21 +157,23 @@ export function AdminConsole({
     cover: photos[coverIndex],
   };
 
+  const navItemLabel = (id: AdminView) => admin.nav.find((item) => item.id === id)?.label ?? id;
+
   const bannerLabel =
     activeView === "attendance"
       ? attendanceLabel
       : activeView === "access"
         ? accessLabel
       : revisionStatus !== "approved" || publicationStatus === "baseline-live"
-        ? revisionStatusCopy[revisionStatus]
-        : publicationStatusCopy[publicationStatus];
+        ? admin.revisionStatus[revisionStatus]
+        : admin.publicationStatus[publicationStatus];
 
   const handleAttendanceNotice = useCallback(
     (label: string, message: string) => {
       setAttendanceLabel(label);
       setNotice(message);
     },
-    [],
+    [setAttendanceLabel, setNotice],
   );
 
   const handleAccessNotice = useCallback(
@@ -200,7 +181,7 @@ export function AdminConsole({
       setAccessLabel(label);
       setAccessNotice(message);
     },
-    [],
+    [setAccessLabel, setAccessNotice],
   );
 
   const approvalAllowed = canApproveRevision({
@@ -228,17 +209,17 @@ export function AdminConsole({
 
   const governanceChecks = [
     {
-      label: "Adult status confirmed",
+      label: admin.governance.checks.adultVerified,
       value: adultVerified,
       setValue: setAdultVerified,
     },
     {
-      label: "Website usage included",
+      label: admin.governance.checks.websiteUsage,
       value: websiteUsage,
       setValue: setWebsiteUsage,
     },
     {
-      label: "Public derivative has no EXIF",
+      label: admin.governance.checks.exifClean,
       value: exifClean,
       setValue: setExifClean,
     },
@@ -246,12 +227,21 @@ export function AdminConsole({
 
   const blockingIssues = useMemo(() => {
     const issues: string[] = [];
-    if (!adultVerified) issues.push("Adult verification is incomplete.");
-    if (!websiteUsage) issues.push("Website usage permission is missing.");
-    if (!exifClean) issues.push("Public image derivative still needs metadata removal.");
-    if (!rightsReference.trim()) issues.push("Rights evidence reference is missing.");
+    if (!adultVerified) issues.push(admin.governance.issues.adultIncomplete);
+    if (!websiteUsage) issues.push(admin.governance.issues.websiteUsageMissing);
+    if (!exifClean) issues.push(admin.governance.issues.exifNotClean);
+    if (!rightsReference.trim()) issues.push(admin.governance.issues.rightsReferenceMissing);
     return issues;
-  }, [adultVerified, exifClean, rightsReference, websiteUsage]);
+  }, [
+    adultVerified,
+    exifClean,
+    rightsReference,
+    websiteUsage,
+    admin.governance.issues.adultIncomplete,
+    admin.governance.issues.websiteUsageMissing,
+    admin.governance.issues.exifNotClean,
+    admin.governance.issues.rightsReferenceMissing,
+  ]);
 
   function appendAudit(action: string, detail: string) {
     setAuditEntries((entries) => [
@@ -267,22 +257,22 @@ export function AdminConsole({
 
   function saveDraft() {
     if (!isDraftEditable) {
-      setNotice("Only editor-01 can save an unlocked draft.");
+      setNotice(admin.notices.onlyEditorCanSave);
       return;
     }
-    setNotice("Draft saved inside the development probe.");
-    appendAudit("DRAFT SAVED", `Updated temporary profile copy for ${displayName}.`);
+    setNotice(admin.notices.draftSaved);
+    appendAudit(admin.audit.draftSavedAction, draftUpdatedDetail(locale, displayName));
   }
 
   function submitReview() {
     if (!isDraftEditable) {
-      setNotice("Only editor-01 can submit an unlocked draft.");
+      setNotice(admin.notices.onlyEditorCanSubmit);
       return;
     }
 
     if (blockingIssues.length > 0) {
       setActiveView("governance");
-      setNotice("Submission blocked. Complete every governance requirement.");
+      setNotice(admin.notices.submissionBlocked);
       appendAudit("SUBMISSION BLOCKED", blockingIssues.join(" "));
       return;
     }
@@ -300,60 +290,45 @@ export function AdminConsole({
     setApprovedBy(null);
     setRevisionStatus("pending");
     setActiveView("release");
-    setNotice(
-      `Revision ${snapshot.revisionId} locked and submitted by ${actor.id}. Switch to reviewer-01 to continue.`,
-    );
-    appendAudit(
-      "SUBMITTED FOR REVIEW",
-      `Revision ${snapshot.revisionId} and three media assets locked for reviewer-01.`,
-    );
+    setNotice(submittedNotice(locale, snapshot.revisionId, actor.id));
+    appendAudit(admin.audit.submittedAction, submittedAuditDetail(locale, snapshot.revisionId));
   }
 
   function approveRevision() {
     if (!approvalAllowed) {
       if (submittedBy !== null && actor.id === submittedBy) {
-        setNotice("The submitting identity cannot approve its own revision.");
-        appendAudit(
-          "APPROVAL BLOCKED",
-          `${actor.id} matches the recorded submitting identity.`,
-        );
+        setNotice(admin.notices.submitterCannotApprove);
+        appendAudit(admin.audit.approvalBlockedAction, approvalBlockedDetail(locale, actor.id));
         return;
       }
 
-      setNotice("Reviewer-01 and a locked pending revision are required.");
+      setNotice(admin.notices.reviewerAndPendingRequired);
       return;
     }
 
     if (!submittedSnapshot) {
-      setNotice("The locked review snapshot is unavailable.");
+      setNotice(admin.notices.snapshotUnavailable);
       return;
     }
 
     setRevisionStatus("approved");
     setApprovedBy(actor.id);
-    setNotice(
-      `Revision ${submittedSnapshot.revisionId} approved by ${actor.id}. Publication remains simulated.`,
-    );
-    appendAudit(
-      "REVISION APPROVED",
-      `Revision ${submittedSnapshot.revisionId} approved independently after governance review.`,
-    );
+    setNotice(approvedNotice(locale, submittedSnapshot.revisionId, actor.id));
+    appendAudit(admin.audit.approvedAction, approvedAuditDetail(locale, submittedSnapshot.revisionId));
   }
 
   function publishRevision() {
     if (publicationStatus === "taken-down") {
-      setNotice(
-        "Emergency takedown closed this session. The approved snapshot cannot be republished.",
-      );
+      setNotice(admin.notices.takedownClosedSession);
       appendAudit(
-        "REPUBLISH BLOCKED",
+        admin.audit.repostBlockedAction,
         "Emergency takedown requires a separately reviewed future revision.",
       );
       return;
     }
 
     if (!publicationAllowed || !submittedSnapshot) {
-      setNotice("Approve the revision before publication.");
+      setNotice(admin.notices.approveBeforePublication);
       return;
     }
 
@@ -365,12 +340,10 @@ export function AdminConsole({
     setPreviousPublicSnapshot(pointers.previousPublicSnapshot);
     setCurrentPublicSnapshot(pointers.currentPublicSnapshot);
     setPublicationStatus("revision-live");
-    setNotice(
-      `Probe public pointer moved from revision ${priorRevisionId} to ${submittedSnapshot.revisionId}. The production site was not changed.`,
-    );
+    setNotice(publishedNotice(locale, priorRevisionId, submittedSnapshot.revisionId));
     appendAudit(
-      "PROBE PUBLISHED",
-      `Public pointer moved from revision ${priorRevisionId} to ${submittedSnapshot.revisionId}.`,
+      admin.audit.publishedAction,
+      publishedAuditDetail(locale, priorRevisionId, submittedSnapshot.revisionId),
     );
   }
 
@@ -380,7 +353,7 @@ export function AdminConsole({
       !currentPublicSnapshot ||
       !previousPublicSnapshot
     ) {
-      setNotice("A reviewer can roll back only after a probe publication.");
+      setNotice(admin.notices.rollbackRequiresPublication);
       return;
     }
 
@@ -393,55 +366,48 @@ export function AdminConsole({
     setCurrentPublicSnapshot(pointers.currentPublicSnapshot);
     setPreviousPublicSnapshot(pointers.previousPublicSnapshot);
     setPublicationStatus("rolled-back");
-    setNotice(
-      `Probe public pointer restored to revision ${restoredSnapshot.revisionId}. Revision ${removedRevisionId} remains approved.`,
-    );
+    setNotice(rollbackNotice(locale, restoredSnapshot.revisionId, removedRevisionId));
     appendAudit(
-      "ROLLBACK COMPLETED",
-      `Revision ${restoredSnapshot.revisionId} restored; revision ${removedRevisionId} remains an approved snapshot.`,
+      admin.audit.rollbackAction,
+      rollbackAuditDetail(locale, restoredSnapshot.revisionId, removedRevisionId),
     );
   }
 
   function emergencyTakedown() {
     if (!takedownAllowed) {
-      setNotice("Emergency takedown requires reviewer authority.");
+      setNotice(admin.notices.takedownRequiresReviewer);
       return;
     }
 
     const result = clearPublicPointer(currentPublicSnapshot);
     setCurrentPublicSnapshot(result.currentPublicSnapshot);
     setPublicationStatus("taken-down");
-    setNotice(
-      `Emergency takedown hid public revision ${result.hiddenRevisionId} across profile, directory and gallery. This session is closed to republishing.`,
-    );
-    appendAudit(
-      "EMERGENCY TAKEDOWN",
-      `Public pointer cleared after hiding revision ${result.hiddenRevisionId}; republishing is locked.`,
-    );
+    setNotice(takedownNotice(locale, result.hiddenRevisionId));
+    appendAudit(admin.audit.takedownAction, takedownAuditDetail(locale, result.hiddenRevisionId));
   }
 
   return (
     <main className="ops-shell">
       <aside className="ops-sidebar">
-        <a href="/" className="ops-brand">
+        <a href={`/${locale}`} className="ops-brand">
           <strong>NOCTURNE</strong>
           <span>OPS</span>
-          <small>AUTHORIZED OPERATIONS ALPHA</small>
+          <small>{admin.brandSub}</small>
         </a>
 
         <div className="ops-environment">
           <i />
-          OPERATIONS / ACCESS CONTROL ALPHA
+          {admin.environmentBanner}
         </div>
 
         <nav aria-label="Operations sections">
-          {navItems.map((item) => (
+          {admin.nav.map((item) => (
             <button
               type="button"
               key={item.id}
               className={activeView === item.id ? "is-active" : ""}
               aria-current={activeView === item.id ? "page" : undefined}
-              onClick={() => setActiveView(item.id)}
+              onClick={() => setActiveView(item.id as AdminView)}
             >
               <span>{item.number}</span>
               <b>{item.label}</b>
@@ -451,44 +417,39 @@ export function AdminConsole({
         </nav>
 
         <div className="ops-sidebar-note">
-          <b>ALPHA BOUNDARY</b>
-          <p>
-            Cast accounts edit their own drafts. Store operators create and edit
-            every schedule, control review and publication, and retain an audit trail.
-          </p>
+          <b>{admin.sidebarNoteTitle}</b>
+          <p>{admin.sidebarNoteBody}</p>
         </div>
       </aside>
 
       <section className="ops-workspace">
         <header className="ops-topbar">
           <div>
-            <span>NOCTURNE TOKYO / INTERNAL OPERATIONS</span>
-            <h1>{navItems.find((item) => item.id === activeView)?.label}</h1>
+            <span>{admin.topbarEyebrow}</span>
+            <h1>{navItemLabel(activeView)}</h1>
           </div>
           {activeView === "attendance" || activeView === "access" ? (
             <div className="ops-role-switcher ops-authenticated-user">
-              <span>AUTHENTICATED OPERATOR</span>
+              <span>{admin.authenticatedOperatorLabel}</span>
               <b>{adminUser.displayName}</b>
-              <small>{adminUser.identityLabel} / SITE ACCESS CODE</small>
+              <small>
+                {adminUser.identityLabel} / {admin.siteAccessCodeSuffix}
+              </small>
             </div>
           ) : (
             <label className="ops-role-switcher">
-              <span>SIMULATED CONTENT ROLE</span>
+              <span>{admin.simulatedRoleLabel}</span>
               <select
-                aria-label="SIMULATED CONTENT ROLE"
+                aria-label={admin.simulatedRoleLabel}
                 value={role}
                 onChange={(event) => {
                   const nextRole = event.target.value as ProbeRole;
                   setRole(nextRole);
-                  setNotice(
-                    `Simulated identity changed to ${probeActors[nextRole].id}.`,
-                  );
+                  setNotice(roleChangedNotice(locale, probeActorIds[nextRole]));
                 }}
               >
-                <option value="editor">Content Editor / editor-01</option>
-                <option value="reviewer">
-                  Operations Reviewer / reviewer-01
-                </option>
+                <option value="editor">{admin.roleOptionEditor}</option>
+                <option value="reviewer">{admin.roleOptionReviewer}</option>
               </select>
               <small>
                 {actor.id} / {actor.scope}
@@ -504,10 +465,11 @@ export function AdminConsole({
 
         {activeView === "queue" && (
           <QueueView
+            admin={admin}
             revisionStatus={revisionStatus}
             blockingIssuesCount={blockingIssues.length}
             currentPublicRevisionId={
-              currentPublicSnapshot?.revisionId ?? "HIDDEN"
+              currentPublicSnapshot?.revisionId ?? admin.release.hiddenLabel
             }
             openContent={() => setActiveView("content")}
           />
@@ -533,14 +495,14 @@ export function AdminConsole({
           <section className="ops-editor-layout" aria-label="Cast profile editor">
             <div className="ops-editor-panel">
               <div className="ops-panel-heading">
-                <span>PROFILE REVISION</span>
+                <span>{admin.content.profileRevisionEyebrow}</span>
                 <h2>{displayName}</h2>
-                <em>REVISION 05 / LOCAL PROBE</em>
+                <em>{admin.content.revisionBadge}</em>
               </div>
 
               <div className="ops-form-grid">
                 <label>
-                  <span>PUBLIC NAME</span>
+                  <span>{admin.content.publicNameLabel}</span>
                   <input
                     value={displayName}
                     disabled={!isDraftEditable}
@@ -548,7 +510,7 @@ export function AdminConsole({
                   />
                 </label>
                 <label>
-                  <span>PUBLIC ROLE</span>
+                  <span>{admin.content.publicRoleLabel}</span>
                   <input
                     value={roleLine}
                     disabled={!isDraftEditable}
@@ -556,7 +518,7 @@ export function AdminConsole({
                   />
                 </label>
                 <label className="is-wide">
-                  <span>PUBLIC BIOGRAPHY</span>
+                  <span>{admin.content.publicBiographyLabel}</span>
                   <textarea
                     value={biography}
                     disabled={!isDraftEditable}
@@ -568,10 +530,10 @@ export function AdminConsole({
 
               <div className="ops-media-heading">
                 <div>
-                  <span>MEDIA SET</span>
-                  <h3>3 SUPPLIED PHOTOS</h3>
+                  <span>{admin.content.mediaSetEyebrow}</span>
+                  <h3>{admin.content.suppliedPhotosLabel}</h3>
                 </div>
-                <small>Select the directory cover</small>
+                <small>{admin.content.selectCoverHint}</small>
               </div>
 
               <div className="ops-media-grid">
@@ -579,16 +541,19 @@ export function AdminConsole({
                   <article className={coverIndex === index ? "is-cover" : ""} key={photo}>
                     <img
                       src={photo}
-                      alt={`${displayName}, supplied view ${index + 1}`}
+                      alt={suppliedPhotoAlt(locale, displayName, index + 1)}
                     />
                     <div>
-                      <b>PHOTO 0{index + 1}</b>
+                      <b>
+                        {admin.content.photoLabelPrefix}
+                        {index + 1}
+                      </b>
                       <button
                         type="button"
                         disabled={!isDraftEditable || coverIndex === index}
                         onClick={() => setCoverIndex(index)}
                       >
-                        {coverIndex === index ? "CURRENT COVER" : "SET AS COVER"}
+                        {coverIndex === index ? admin.content.currentCover : admin.content.setAsCover}
                       </button>
                     </div>
                   </article>
@@ -602,19 +567,21 @@ export function AdminConsole({
                   disabled={!isDraftEditable}
                   onClick={saveDraft}
                 >
-                  SAVE DRAFT
+                  {admin.content.saveDraft}
                 </button>
                 <button
                   type="button"
                   disabled={!isDraftEditable}
                   onClick={submitReview}
                 >
-                  SUBMIT FOR REVIEW
+                  {admin.content.submitForReview}
                 </button>
               </div>
             </div>
 
             <ProfilePreview
+              admin={admin}
+              locale={locale}
               biography={reviewSnapshot.biography}
               cover={reviewSnapshot.cover}
               displayName={reviewSnapshot.displayName}
@@ -626,61 +593,63 @@ export function AdminConsole({
         {activeView === "release" && (
           <section className="ops-release-layout">
             <ProfilePreview
+              admin={admin}
+              locale={locale}
               biography={reviewSnapshot.biography}
               cover={reviewSnapshot.cover}
               displayName={reviewSnapshot.displayName}
               roleLine={reviewSnapshot.roleLine}
-              label="LOCKED REVIEW SNAPSHOT"
-              badge={`REVISION ${reviewSnapshot.revisionId}`}
+              label={admin.release.lockedSnapshotLabel}
+              badge={`${admin.release.revisionBadgePrefix} ${reviewSnapshot.revisionId}`}
               large
             />
             <div className="ops-release-panel">
               <div className="ops-panel-heading">
-                <span>REVIEW & RELEASE</span>
-                <h2>CONTROLLED PUBLICATION</h2>
+                <span>{admin.release.reviewReleaseEyebrow}</span>
+                <h2>{admin.release.controlledPublicationTitle}</h2>
                 <em>{bannerLabel}</em>
               </div>
 
               <div className="ops-public-pointer" aria-label="Probe public pointers">
                 <article>
-                  <span>CURRENT PUBLIC</span>
-                  <b>{currentPublicSnapshot?.revisionId ?? "HIDDEN"}</b>
+                  <span>{admin.release.currentPublicLabel}</span>
+                  <b>{currentPublicSnapshot?.revisionId ?? admin.release.hiddenLabel}</b>
                   <small>
                     {currentPublicSnapshot
                       ? currentPublicSnapshot.displayName
-                      : "Profile, directory and gallery hidden"}
+                      : admin.release.profileHiddenNote}
                   </small>
                 </article>
                 <article>
-                  <span>PREVIOUS POINTER</span>
-                  <b>{previousPublicSnapshot?.revisionId ?? "NONE"}</b>
+                  <span>{admin.release.previousPointerLabel}</span>
+                  <b>{previousPublicSnapshot?.revisionId ?? admin.release.noneLabel}</b>
                   <small>
                     {previousPublicSnapshot
-                      ? "Available as the last pointer transition"
-                      : "No prior probe publication yet"}
+                      ? admin.release.availableAsPointerNote
+                      : admin.release.noPriorPublicationNote}
                   </small>
                 </article>
                 <article>
-                  <span>SUBMITTED BY</span>
-                  <b>{submittedBy ?? "NONE"}</b>
-                  <small>Approval requires a different fixed identity</small>
+                  <span>{admin.release.submittedByLabel}</span>
+                  <b>{submittedBy ?? admin.release.noneLabel}</b>
+                  <small>{admin.release.approvalRequiresDifferentIdentity}</small>
                 </article>
               </div>
 
               <ol className="ops-release-steps">
                 <li className="is-complete">
                   <b>01</b>
-                  <span>Draft created</span>
+                  <span>{admin.release.stepDraftCreated}</span>
                 </li>
                 <li className={revisionStatus !== "draft" ? "is-complete" : ""}>
                   <b>02</b>
-                  <span>Governance passed</span>
+                  <span>{admin.release.stepGovernancePassed}</span>
                 </li>
                 <li
                   className={revisionStatus === "approved" ? "is-complete" : ""}
                 >
                   <b>03</b>
-                  <span>Independent approval</span>
+                  <span>{admin.release.stepIndependentApproval}</span>
                 </li>
                 <li
                   className={
@@ -688,7 +657,7 @@ export function AdminConsole({
                   }
                 >
                   <b>04</b>
-                  <span>Probe publication</span>
+                  <span>{admin.release.stepProbePublication}</span>
                 </li>
               </ol>
 
@@ -698,14 +667,14 @@ export function AdminConsole({
                   disabled={!approvalAllowed}
                   onClick={approveRevision}
                 >
-                  APPROVE REVISION
+                  {admin.release.approveRevision}
                 </button>
                 <button
                   type="button"
                   disabled={!publicationAllowed}
                   onClick={publishRevision}
                 >
-                  PUBLISH PROBE
+                  {admin.release.publishProbe}
                 </button>
                 <button
                   type="button"
@@ -713,7 +682,7 @@ export function AdminConsole({
                   disabled={!rollbackAllowed}
                   onClick={rollbackRevision}
                 >
-                  ROLLBACK
+                  {admin.release.rollback}
                 </button>
                 <button
                   type="button"
@@ -721,7 +690,7 @@ export function AdminConsole({
                   disabled={!takedownAllowed}
                   onClick={emergencyTakedown}
                 >
-                  EMERGENCY TAKEDOWN
+                  {admin.release.emergencyTakedown}
                 </button>
               </div>
             </div>
@@ -732,9 +701,11 @@ export function AdminConsole({
           <section className="ops-governance-layout">
             <div className="ops-governance-panel">
               <div className="ops-panel-heading">
-                <span>PUBLICATION GATE</span>
-                <h2>RIGHTS & SAFETY</h2>
-                <em>{blockingIssues.length} BLOCKING ITEMS</em>
+                <span>{admin.governance.publicationGateEyebrow}</span>
+                <h2>{admin.governance.rightsSafetyTitle}</h2>
+                <em>
+                  {blockingIssues.length} {admin.governance.blockingItemsSuffix}
+                </em>
               </div>
 
               <div className="ops-check-list">
@@ -756,7 +727,7 @@ export function AdminConsole({
                       />
                       <span>
                         <b>{item.label}</b>
-                        <small>Required before review submission</small>
+                        <small>{admin.governance.requiredBeforeSubmission}</small>
                       </span>
                     </label>
                   );
@@ -764,35 +735,32 @@ export function AdminConsole({
               </div>
 
               <label className="ops-rights-reference">
-                <span>RIGHTS EVIDENCE REFERENCE</span>
+                <span>{admin.governance.rightsEvidenceLabel}</span>
                 <input
                   value={rightsReference}
-                  placeholder="Example: RIGHTS-YUNA-2026-001"
+                  placeholder={admin.governance.rightsEvidencePlaceholder}
                   disabled={!isDraftEditable}
                   onChange={(event) => setRightsReference(event.target.value)}
                 />
-                <small>
-                  The probe stores only a reference. Identity documents and original
-                  agreements remain outside the public content system.
-                </small>
+                <small>{admin.governance.rightsEvidenceNote}</small>
               </label>
 
               {blockingIssues.length > 0 ? (
                 <div className="ops-blockers">
-                  <b>PUBLICATION BLOCKED</b>
+                  <b>{admin.governance.publicationBlocked}</b>
                   {blockingIssues.map((issue) => (
                     <p key={issue}>{issue}</p>
                   ))}
                 </div>
               ) : (
                 <div className="ops-ready">
-                  <b>READY FOR REVIEW</b>
-                  <p>Every deterministic publication gate has passed.</p>
+                  <b>{admin.governance.readyForReview}</b>
+                  <p>{admin.governance.readyForReviewNote}</p>
                 </div>
               )}
             </div>
 
-            <AuditTimeline entries={auditEntries} />
+            <AuditTimeline admin={admin} entries={auditEntries} />
           </section>
         )}
       </section>
@@ -801,27 +769,29 @@ export function AdminConsole({
 }
 
 function QueueView({
+  admin,
   revisionStatus,
   blockingIssuesCount,
   currentPublicRevisionId,
   openContent,
 }: {
+  admin: Dictionary["admin"];
   revisionStatus: RevisionStatus;
   blockingIssuesCount: number;
   currentPublicRevisionId: string;
   openContent: () => void;
 }) {
   const summary = [
-    ["01", "ACTIVE REVISION", "Yuna / Revision 05"],
+    ["01", admin.queue.summaryActiveRevision, admin.queue.summaryActiveRevisionDetail],
     [
       String(blockingIssuesCount).padStart(2, "0"),
-      "RIGHTS GAPS",
+      admin.queue.summaryRightsGaps,
       blockingIssuesCount > 0
-        ? "Evidence reference still needs filing"
-        : "Every deterministic rights gate is complete",
+        ? admin.queue.summaryRightsGapsPending
+        : admin.queue.summaryRightsGapsClear,
     ],
-    [currentPublicRevisionId, "CURRENT PUBLIC", "Single-profile probe pointer"],
-    ["00", "PUBLISH FAILURES", "No failed probe releases"],
+    [currentPublicRevisionId, admin.queue.summaryCurrentPublic, admin.queue.summaryCurrentPublicDetail],
+    ["00", admin.queue.summaryPublishFailures, admin.queue.summaryPublishFailuresDetail],
   ];
 
   return (
@@ -838,45 +808,45 @@ function QueueView({
 
       <div className="ops-queue-table">
         <div className="ops-table-head">
-          <span>PRIORITY</span>
-          <span>OBJECT</span>
-          <span>REASON</span>
-          <span>STATUS</span>
-          <span>ACTION</span>
+          <span>{admin.queue.tableHeadPriority}</span>
+          <span>{admin.queue.tableHeadObject}</span>
+          <span>{admin.queue.tableHeadReason}</span>
+          <span>{admin.queue.tableHeadStatus}</span>
+          <span>{admin.queue.tableHeadAction}</span>
         </div>
         <article>
           <b className="is-pink">P1</b>
           <span>Yuna / Revision 05</span>
-          <p>New biography and three supplied photos</p>
-          <em>{revisionStatusCopy[revisionStatus]}</em>
+          <p>{admin.queue.priorityReason}</p>
+          <em>{admin.revisionStatus[revisionStatus]}</em>
           <button type="button" onClick={openContent}>
-            OPEN REVISION
+            {admin.queue.openRevision}
           </button>
         </article>
       </div>
 
       <div className="ops-next-slice">
-        <span>ACTIVE VERTICAL SLICE</span>
-        <h2>ATTENDANCE IS NOW DURABLE AND PUBLICATION-GATED</h2>
-        <p>
-          Open Attendance to create one Yuna shift, move it through review and
-          publish it to the anonymous profile projection. Attendance is live;
-          cast and media publishing remains a simulated Alpha workflow.
-        </p>
+        <span>{admin.queue.sliceEyebrow}</span>
+        <h2>{admin.queue.sliceTitle}</h2>
+        <p>{admin.queue.sliceBody}</p>
       </div>
     </section>
   );
 }
 
 function ProfilePreview({
+  admin,
+  locale,
   biography,
   cover,
   displayName,
   roleLine,
-  label = "PUBLIC PROFILE PREVIEW",
-  badge = "MOBILE",
+  label,
+  badge,
   large = false,
 }: {
+  admin: Dictionary["admin"];
+  locale: Locale;
   biography: string;
   cover: string;
   displayName: string;
@@ -888,37 +858,41 @@ function ProfilePreview({
   return (
     <aside className={`ops-preview ${large ? "is-large" : ""}`}>
       <div className="ops-preview-label">
-        <span>{label}</span>
-        <b>{badge}</b>
+        <span>{label ?? admin.preview.defaultLabel}</span>
+        <b>{badge ?? admin.preview.defaultBadge}</b>
       </div>
       <div className="ops-phone">
         <div className="ops-phone-brand">
           <b>NOCTURNE</b>
           <span>TOKYO</span>
         </div>
-        <img src={cover} alt={`${displayName} profile preview`} />
+        <img src={cover} alt={profilePreviewAlt(locale, displayName)} />
         <div className="ops-phone-copy">
-          <em>TONIGHT / GINZA</em>
-          <h3>{displayName || "Untitled profile"}</h3>
-          <b>{roleLine || "Public role pending"}</b>
-          <p>{biography || "Public biography pending."}</p>
-          <span className="ops-contact-preview">
-            CONTACT ENTRY PREVIEW ONLY
-          </span>
+          <em>{admin.preview.tonightGinza}</em>
+          <h3>{displayName || admin.preview.untitledProfile}</h3>
+          <b>{roleLine || admin.preview.rolePending}</b>
+          <p>{biography || admin.preview.biographyPending}</p>
+          <span className="ops-contact-preview">{admin.preview.contactPreviewOnly}</span>
         </div>
       </div>
-      <small>Simulated preview. No customer data or production write occurs.</small>
+      <small>{admin.preview.simulatedNote}</small>
     </aside>
   );
 }
 
-function AuditTimeline({ entries }: { entries: AuditEntry[] }) {
+function AuditTimeline({
+  admin,
+  entries,
+}: {
+  admin: Dictionary["admin"];
+  entries: AuditEntry[];
+}) {
   return (
     <aside className="ops-audit-panel">
       <div className="ops-panel-heading">
-        <span>SESSION-ONLY RECORD</span>
-        <h2>SIMULATED TIMELINE</h2>
-        <em>RESETS ON REFRESH</em>
+        <span>{admin.auditPanel.sessionOnlyRecord}</span>
+        <h2>{admin.auditPanel.simulatedTimeline}</h2>
+        <em>{admin.auditPanel.resetsOnRefresh}</em>
       </div>
       <div className="ops-audit-list">
         {entries.map((entry, index) => (

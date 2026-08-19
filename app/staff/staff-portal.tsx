@@ -1,9 +1,10 @@
-/* eslint-disable @next/next/no-html-link-for-pages */
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { artists } from "../data";
 import { AttendancePanel } from "../admin/attendance-panel";
+import { useTranslations } from "../../i18n/context";
+import { staffSignedInNotice } from "../../i18n/messages";
 
 type StaffAccount = {
   id: string;
@@ -13,13 +14,15 @@ type StaffAccount = {
 };
 
 export function StaffPortal() {
+  const { locale, dictionary } = useTranslations();
+  const staff = dictionary.staffPortal;
   const [account, setAccount] = useState<StaffAccount | null>(null);
   const [checking, setChecking] = useState(true);
   const [artistSlug, setArtistSlug] = useState(artists[0]?.slug ?? "");
   const [credential, setCredential] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState({ label: "CAST PORTAL", message: "Manage your own attendance and submit changes for store review." });
+  const [notice, setNotice] = useState({ label: staff.portalLabel, message: staff.manageNotice });
 
   const checkSession = useCallback(async () => {
     try {
@@ -50,12 +53,12 @@ export function StaffPortal() {
         body: JSON.stringify({ artistSlug, credential }),
       });
       const body = (await response.json()) as { account?: StaffAccount; error?: string };
-      if (!response.ok || !body.account) throw new Error(body.error ?? "Sign-in failed.");
+      if (!response.ok || !body.account) throw new Error(body.error ?? staff.signInFailed);
       setAccount(body.account);
       setCredential("");
-      setNotice({ label: "SIGNED IN", message: `${body.account.displayName} can now manage attendance for the bound profile.` });
+      setNotice({ label: staff.signedIn, message: staffSignedInNotice(locale, body.account.displayName) });
     } catch (signInError) {
-      setError(signInError instanceof Error ? signInError.message : "Sign-in failed.");
+      setError(signInError instanceof Error ? signInError.message : staff.signInFailed);
     } finally {
       setBusy(false);
     }
@@ -64,24 +67,24 @@ export function StaffPortal() {
   async function signOut() {
     await fetch("/api/staff/session", { method: "DELETE", headers: { accept: "application/json" } });
     setAccount(null);
-    setNotice({ label: "SIGNED OUT", message: "The staff session has ended." });
+    setNotice({ label: staff.signedOutLabel, message: staff.signedOutNotice });
   }
 
   if (checking) {
-    return <main className="staff-shell"><h1 className="sr-only">MY ATTENDANCE</h1><p className="staff-loading">CHECKING STAFF SESSION…</p></main>;
+    return <main className="staff-shell"><h1 className="sr-only">{staff.myAttendanceHeading}</h1><p className="staff-loading">{staff.checkingSession}</p></main>;
   }
 
   if (!account) {
     return (
       <main className="staff-shell staff-login-shell">
-        <a className="staff-brand" href="/"><strong>NOCTURNE</strong><span>CAST PORTAL</span></a>
+        <a className="staff-brand" href={`/${locale}`}><strong>NOCTURNE</strong><span>{staff.portalLabel}</span></a>
         <form className="staff-login" onSubmit={signIn}>
-          <span>PRIVATE STAFF ACCESS</span><h1>MY ATTENDANCE</h1><p>Select your profile and enter the temporary code supplied by the store operator.</p>
-          <label><span>CAST PROFILE</span><select value={artistSlug} onChange={(event) => setArtistSlug(event.target.value)}>{artists.map((artist) => <option key={artist.slug} value={artist.slug}>{artist.name}</option>)}</select></label>
-          <label><span>ACCESS CODE</span><input type="password" autoComplete="current-password" value={credential} onChange={(event) => setCredential(event.target.value)} /></label>
+          <span>{staff.privateAccessTitle}</span><h1>{staff.myAttendanceHeading}</h1><p>{staff.intro}</p>
+          <label><span>{staff.castProfileLabel}</span><select value={artistSlug} onChange={(event) => setArtistSlug(event.target.value)}>{artists.map((artist) => <option key={artist.slug} value={artist.slug}>{artist.name}</option>)}</select></label>
+          <label><span>{staff.accessCodeLabel}</span><input type="password" autoComplete="current-password" value={credential} onChange={(event) => setCredential(event.target.value)} /></label>
           {error && <div className="staff-login-error" role="alert">{error}</div>}
-          <button type="submit" disabled={busy || credential.trim().length < 12}>{busy ? "SIGNING IN…" : "SIGN IN"}</button>
-          <small>The store can disable this identity or rotate its code at any time.</small>
+          <button type="submit" disabled={busy || credential.trim().length < 12}>{busy ? staff.signingIn : staff.signIn}</button>
+          <small>{staff.disableNote}</small>
         </form>
       </main>
     );
@@ -89,7 +92,7 @@ export function StaffPortal() {
 
   return (
     <main className="staff-shell">
-      <header className="staff-topbar"><a className="staff-brand" href="/"><strong>NOCTURNE</strong><span>CAST PORTAL</span></a><div><span>SIGNED IN</span><b>{account.displayName}</b><button type="button" onClick={signOut}>SIGN OUT</button></div></header>
+      <header className="staff-topbar"><a className="staff-brand" href={`/${locale}`}><strong>NOCTURNE</strong><span>{staff.portalLabel}</span></a><div><span>{staff.signedIn}</span><b>{account.displayName}</b><button type="button" onClick={signOut}>{staff.signOut}</button></div></header>
       <div className="ops-notice" role="status"><b>{notice.label}</b><span>{notice.message}</span></div>
       <AttendancePanel actorKind="cast" endpoint="/api/staff/attendance" identity={{ displayName: account.displayName, identityLabel: `CAST ACCOUNT / ${account.artistSlug}`, artistSlug: account.artistSlug, artistName: account.displayName }} onNotice={(label, message) => setNotice({ label, message })} onAuthenticationLost={() => setAccount(null)} />
     </main>

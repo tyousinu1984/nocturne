@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template only — NOT a copy of the real LaunchAgent on the production
+  host. That plist lives on the `shinpei` host, which this development
+  checkout has no access to; there was nothing to read or diff it against.
+
+  This shows the one change needed to move the existing
+  cc.shinpei.nocturne-tokyo LaunchAgent from running the bare
+  `node dist/standalone/server.js` process to running it inside Docker:
+  ProgramArguments now points at scripts/start-production-docker.sh instead
+  of scripts/start-production.sh. Copy the *actual* StandardOutPath,
+  StandardErrorPath, WorkingDirectory and any other keys from the real
+  plist on that host — do not just install this file as-is.
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>cc.shinpei.nocturne-tokyo</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/zsh</string>
+      <string>-c</string>
+      <string>/path/to/nocturne/scripts/start-production-docker.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+  </dict>
+</plist>

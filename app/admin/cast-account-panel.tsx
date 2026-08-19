@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "../../i18n/context";
+import { accountUpdatedNotice, oneTimeCodeLabel } from "../../i18n/messages";
 import type {
   CastAccountEventRecord,
   CastAccountRecord,
@@ -18,6 +20,8 @@ export function CastAccountPanel({
 }: {
   onNotice: (label: string, message: string) => void;
 }) {
+  const { locale, dictionary } = useTranslations();
+  const access = dictionary.admin.access;
   const [data, setData] = useState<AccountData>({ artists: [], accounts: [], events: [] });
   const [loading, setLoading] = useState(true);
   const [busySlug, setBusySlug] = useState<string | null>(null);
@@ -40,16 +44,16 @@ export function CastAccountPanel({
         headers: { accept: "application/json" },
       });
       const body = (await response.json()) as AccountData & { error?: string };
-      if (!response.ok) throw new Error(body.error ?? "Accounts could not be loaded.");
+      if (!response.ok) throw new Error(body.error ?? access.accountsLoadFailed);
       setData(body);
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : "Accounts could not be loaded.";
+      const message = loadError instanceof Error ? loadError.message : access.accountsLoadFailed;
       setError(message);
-      onNotice("ACCESS ERROR", message);
+      onNotice(access.accessError, message);
     } finally {
       setLoading(false);
     }
-  }, [onNotice]);
+  }, [onNotice, access.accountsLoadFailed, access.accessError]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -75,7 +79,7 @@ export function CastAccountPanel({
         error?: string;
       };
       if (!response.ok || !body.account) {
-        throw new Error(body.error ?? "Account command failed.");
+        throw new Error(body.error ?? access.accountCommandFailed);
       }
       setData((current) => ({
         ...current,
@@ -87,18 +91,13 @@ export function CastAccountPanel({
       if (body.temporaryAccessCode) {
         setTemporaryCode({ displayName: artist.name, value: body.temporaryAccessCode });
       }
-      const label = {
-        create: "ACCOUNT CREATED",
-        rotate_credential: "ACCESS CODE RESET",
-        enable: "ACCOUNT ENABLED",
-        disable: "ACCOUNT DISABLED",
-      }[action];
-      onNotice(label, `${artist.name} access was updated. Existing sessions were invalidated when applicable.`);
+      const label = access.actionLabels[action];
+      onNotice(label, accountUpdatedNotice(locale, artist.name));
       await load();
     } catch (actionError) {
-      const message = actionError instanceof Error ? actionError.message : "Account command failed.";
+      const message = actionError instanceof Error ? actionError.message : access.accountCommandFailed;
       setError(message);
-      onNotice("ACCESS COMMAND BLOCKED", message);
+      onNotice(access.accessCommandBlocked, message);
     } finally {
       setBusySlug(null);
     }
@@ -107,46 +106,53 @@ export function CastAccountPanel({
   return (
     <section className="ops-access">
       <div className="ops-panel-heading">
-        <span>CAST IDENTITY & PERMISSIONS</span>
-        <h2>STAFF ACCESS</h2>
-        <em>{data.accounts.filter((account) => account.status === "active").length} ACTIVE ACCOUNTS</em>
+        <span>{access.eyebrow}</span>
+        <h2>{access.title}</h2>
+        <em>
+          {data.accounts.filter((account) => account.status === "active").length}{" "}
+          {access.activeAccountsSuffix}
+        </em>
       </div>
 
       <div className="ops-access-principles">
-        <article><b>CAST SCOPE</b><p>Create, save and submit attendance for the profile bound to the account.</p></article>
-        <article><b>ADMIN SCOPE</b><p>Approve, reject, publish, cancel and manage cast credentials.</p></article>
-        <article><b>SESSION CONTROL</b><p>Disable or reset increments session version and closes earlier sessions.</p></article>
+        <article><b>{access.castScopeTitle}</b><p>{access.castScopeBody}</p></article>
+        <article><b>{access.adminScopeTitle}</b><p>{access.adminScopeBody}</p></article>
+        <article><b>{access.sessionControlTitle}</b><p>{access.sessionControlBody}</p></article>
       </div>
 
       {temporaryCode && (
         <div className="ops-temporary-code" role="status">
-          <div><span>ONE-TIME ACCESS CODE / {temporaryCode.displayName.toUpperCase()}</span><strong>{temporaryCode.value}</strong><p>Copy this now. Only the credential hash is stored and this code cannot be shown again.</p></div>
-          <button type="button" onClick={() => setTemporaryCode(null)}>I SAVED IT</button>
+          <div>
+            <span>{oneTimeCodeLabel(locale, temporaryCode.displayName.toUpperCase())}</span>
+            <strong>{temporaryCode.value}</strong>
+            <p>{access.oneTimeCodeNote}</p>
+          </div>
+          <button type="button" onClick={() => setTemporaryCode(null)}>{access.savedIt}</button>
         </div>
       )}
 
-      {error && <div className="ops-attendance-error"><b>ATTENTION REQUIRED</b><p>{error}</p><button type="button" onClick={load}>RETRY LOAD</button></div>}
+      {error && <div className="ops-attendance-error"><b>{access.attentionRequired}</b><p>{error}</p><button type="button" onClick={load}>{access.retryLoad}</button></div>}
 
-      {loading ? <p className="ops-attendance-empty">Loading cast identities…</p> : (
+      {loading ? <p className="ops-attendance-empty">{access.loadingIdentities}</p> : (
         <div className="ops-account-grid">
           {data.artists.map((artist) => {
             const account = accountBySlug.get(artist.slug);
             const busy = busySlug === artist.slug;
             return (
               <article key={artist.slug} className={account?.status === "disabled" ? "is-disabled" : ""}>
-                <div className="ops-account-title"><span>{artist.slug}</span><h3>{artist.name}</h3><em>{account ? account.status.toUpperCase() : "NO ACCOUNT"}</em></div>
+                <div className="ops-account-title"><span>{artist.slug}</span><h3>{artist.name}</h3><em>{account ? account.status.toUpperCase() : access.noAccount}</em></div>
                 {account ? (
                   <dl>
-                    <div><dt>SESSION VERSION</dt><dd>V{account.sessionVersion}</dd></div>
-                    <div><dt>LAST LOGIN</dt><dd>{account.lastLoginAt ? new Date(account.lastLoginAt).toLocaleString("en-GB", { timeZone: "Asia/Tokyo" }) : "NEVER"}</dd></div>
-                    <div><dt>ACCOUNT ID</dt><dd>{account.id.slice(0, 18)}…</dd></div>
+                    <div><dt>{access.sessionVersionLabel}</dt><dd>V{account.sessionVersion}</dd></div>
+                    <div><dt>{access.lastLoginLabel}</dt><dd>{account.lastLoginAt ? new Date(account.lastLoginAt).toLocaleString("en-GB", { timeZone: "Asia/Tokyo" }) : access.never}</dd></div>
+                    <div><dt>{access.accountIdLabel}</dt><dd>{account.id.slice(0, 18)}…</dd></div>
                   </dl>
-                ) : <p>No sign-in identity exists for this profile.</p>}
+                ) : <p>{access.noSignInIdentity}</p>}
                 <div className="ops-account-actions">
-                  {!account && <button type="button" disabled={busy} onClick={() => runAction(artist, "create")}>{busy ? "CREATING…" : "CREATE ACCOUNT"}</button>}
-                  {account && <button type="button" className="is-secondary" disabled={busy} onClick={() => runAction(artist, "rotate_credential")}>{busy ? "RESETTING…" : "RESET ACCESS CODE"}</button>}
-                  {account?.status === "active" && <button type="button" className="is-danger" disabled={busy} onClick={() => runAction(artist, "disable")}>DISABLE</button>}
-                  {account?.status === "disabled" && <button type="button" disabled={busy} onClick={() => runAction(artist, "enable")}>ENABLE</button>}
+                  {!account && <button type="button" disabled={busy} onClick={() => runAction(artist, "create")}>{busy ? access.creating : access.createAccount}</button>}
+                  {account && <button type="button" className="is-secondary" disabled={busy} onClick={() => runAction(artist, "rotate_credential")}>{busy ? access.resetting : access.resetAccessCode}</button>}
+                  {account?.status === "active" && <button type="button" className="is-danger" disabled={busy} onClick={() => runAction(artist, "disable")}>{access.disable}</button>}
+                  {account?.status === "disabled" && <button type="button" disabled={busy} onClick={() => runAction(artist, "enable")}>{access.enable}</button>}
                 </div>
               </article>
             );
@@ -155,8 +161,8 @@ export function CastAccountPanel({
       )}
 
       <section className="ops-account-audit">
-        <span>RECENT IDENTITY EVENTS</span>
-        {data.events.length === 0 ? <p>No identity events yet.</p> : data.events.slice(0, 12).map((event) => (
+        <span>{access.recentEvents}</span>
+        {data.events.length === 0 ? <p>{access.noEventsYet}</p> : data.events.slice(0, 12).map((event) => (
           <article key={event.id}><b>{event.action.replaceAll("_", " ").toUpperCase()}</b><small>{event.actorUserId} / {new Date(event.createdAt).toLocaleString("en-GB", { timeZone: "Asia/Tokyo" })}</small><p>{event.detail}</p></article>
         ))}
       </section>

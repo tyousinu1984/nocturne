@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import { notFound } from "next/navigation";
+import "../globals.css";
+import { isSupportedLocale, type Locale } from "../../i18n/locales";
+import { getDictionary } from "../../i18n/get-dictionary";
+import { I18nProvider } from "../../i18n/context";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://nocturne.shinpei.cc.cd"),
@@ -37,14 +41,24 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
+type LocaleLayoutProps = {
   children: React.ReactNode;
-}>) {
+  params: Promise<{ locale: string }>;
+};
+
+export default async function LocaleLayout({ children, params }: LocaleLayoutProps) {
+  const { locale: rawLocale } = await params;
+  if (!isSupportedLocale(rawLocale)) notFound();
+  const locale: Locale = rawLocale;
+  const dictionary = await getDictionary(locale);
+
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang={locale}>
+      <body>
+        <I18nProvider locale={locale} dictionary={dictionary}>
+          {children}
+        </I18nProvider>
+      </body>
     </html>
   );
 }

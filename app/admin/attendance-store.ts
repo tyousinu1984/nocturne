@@ -112,46 +112,52 @@ export class AttendanceStoreError extends Error {
   }
 }
 
+// Aliases are double-quoted so Postgres preserves the camelCase spelling —
+// an unquoted "AS artistSlug" gets folded to lowercase ("artistslug") by
+// Postgres, unlike SQLite which preserves it as written. Every row-mapping
+// call site here expects the camelCase keys, so this quoting is load-bearing.
 const entrySelect = `
   SELECT
     id,
-    artist_slug AS artistSlug,
-    service_date AS serviceDate,
-    start_time AS startTime,
-    end_time AS endTime,
+    artist_slug AS "artistSlug",
+    service_date AS "serviceDate",
+    start_time AS "startTime",
+    end_time AS "endTime",
     status,
     version,
-    submitted_by AS submittedBy,
-    reviewed_by AS reviewedBy,
+    submitted_by AS "submittedBy",
+    reviewed_by AS "reviewedBy",
     note,
-    rejection_reason AS rejectionReason,
-    cancellation_reason AS cancellationReason,
-    submitted_at AS submittedAt,
-    reviewed_at AS reviewedAt,
-    published_at AS publishedAt,
-    cancelled_at AS cancelledAt,
-    created_at AS createdAt,
-    updated_at AS updatedAt
+    rejection_reason AS "rejectionReason",
+    cancellation_reason AS "cancellationReason",
+    submitted_at AS "submittedAt",
+    reviewed_at AS "reviewedAt",
+    published_at AS "publishedAt",
+    cancelled_at AS "cancelledAt",
+    created_at AS "createdAt",
+    updated_at AS "updatedAt"
   FROM attendance_entries
 `;
 
 const eventSelect = `
   SELECT
     id,
-    attendance_id AS attendanceId,
-    idempotency_key AS idempotencyKey,
+    attendance_id AS "attendanceId",
+    idempotency_key AS "idempotencyKey",
     action,
-    from_status AS fromStatus,
-    to_status AS toStatus,
-    actor_user_id AS actorUserId,
-    entry_version AS entryVersion,
+    from_status AS "fromStatus",
+    to_status AS "toStatus",
+    actor_user_id AS "actorUserId",
+    entry_version AS "entryVersion",
     detail,
-    created_at AS createdAt
+    created_at AS "createdAt"
   FROM attendance_events
 `;
 
-// This is intentionally testable beside the generated Drizzle migration.
-// Development initialization stays restricted to the local development mock.
+// This is intentionally testable beside the generated Drizzle migration
+// (see the "development DDL stays equivalent to the generated migration"
+// test) — kept as Postgres DDL, matching drizzle/0000_round_lily_hollister.sql.
+// Development/test initialization stays restricted to the local mock.
 export const attendanceDevelopmentSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS attendance_entries (
     id text PRIMARY KEY NOT NULL,
@@ -172,8 +178,8 @@ export const attendanceDevelopmentSchemaStatements = [
     reviewed_at text,
     published_at text,
     cancelled_at text,
-    created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at text DEFAULT CURRENT_TIMESTAMP::text NOT NULL,
+    updated_at text DEFAULT CURRENT_TIMESTAMP::text NOT NULL,
     CONSTRAINT attendance_entries_time_order CHECK(attendance_entries.start_time < attendance_entries.end_time),
     CONSTRAINT attendance_entries_version_positive CHECK(attendance_entries.version >= 1),
     CONSTRAINT attendance_entries_status_valid CHECK(attendance_entries.status IN ('draft', 'pending', 'approved', 'published', 'rejected', 'cancelled'))
@@ -187,7 +193,7 @@ export const attendanceDevelopmentSchemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_attendance_entries_status_date
     ON attendance_entries (status, service_date)`,
   `CREATE TABLE IF NOT EXISTS attendance_events (
-    id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY NOT NULL,
     attendance_id text NOT NULL,
     idempotency_key text NOT NULL,
     request_fingerprint text NOT NULL,
@@ -198,17 +204,17 @@ export const attendanceDevelopmentSchemaStatements = [
     entry_version integer NOT NULL,
     detail text DEFAULT '' NOT NULL,
     result_snapshot text NOT NULL,
-    created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at text DEFAULT CURRENT_TIMESTAMP::text NOT NULL,
     CONSTRAINT attendance_events_action_valid CHECK(attendance_events.action IN ('create', 'save_draft', 'submit', 'approve', 'reject', 'publish', 'cancel')),
     CONSTRAINT attendance_events_to_status_valid CHECK(attendance_events.to_status IN ('draft', 'pending', 'approved', 'published', 'rejected', 'cancelled')),
     CONSTRAINT attendance_events_from_status_valid CHECK(attendance_events.from_status IS NULL OR attendance_events.from_status IN ('draft', 'pending', 'approved', 'published', 'rejected', 'cancelled')),
-    FOREIGN KEY (attendance_id) REFERENCES attendance_entries(id) ON UPDATE no action ON DELETE cascade
+    CONSTRAINT attendance_events_attendance_id_attendance_entries_id_fk
+      FOREIGN KEY (attendance_id) REFERENCES attendance_entries(id) ON UPDATE no action ON DELETE cascade
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS uq_attendance_events_idempotency
     ON attendance_events (idempotency_key)`,
   `CREATE INDEX IF NOT EXISTS idx_attendance_events_entry_created
     ON attendance_events (attendance_id, created_at, id)`,
-  "PRAGMA optimize",
 ] as const;
 
 export function createAttendanceStore(
@@ -304,9 +310,9 @@ export function createAttendanceStore(
     const idempotencyRecord = await d1
       .prepare(
         `SELECT
-          attendance_id AS attendanceId,
-          request_fingerprint AS requestFingerprint,
-          result_snapshot AS resultSnapshot
+          attendance_id AS "attendanceId",
+          request_fingerprint AS "requestFingerprint",
+          result_snapshot AS "resultSnapshot"
          FROM attendance_events
          WHERE idempotency_key = ?
          LIMIT 1`,
@@ -372,7 +378,7 @@ export function createAttendanceStore(
     const [snapshot, event] = await Promise.all([
       d1
         .prepare(
-          `SELECT result_snapshot AS resultSnapshot
+          `SELECT result_snapshot AS "resultSnapshot"
            FROM attendance_events
            WHERE idempotency_key = ?
            LIMIT 1`,
@@ -744,10 +750,10 @@ export function createAttendanceStore(
         .prepare(
           `SELECT
             id,
-            artist_slug AS artistSlug,
-            service_date AS serviceDate,
-            start_time AS startTime,
-            end_time AS endTime
+            artist_slug AS "artistSlug",
+            service_date AS "serviceDate",
+            start_time AS "startTime",
+            end_time AS "endTime"
            FROM attendance_entries
            WHERE artist_slug = ? AND status = 'published'
            ORDER BY service_date ASC, start_time ASC
@@ -782,7 +788,7 @@ export function createAttendanceStore(
 async function runtimeAttendanceStore() {
   try {
     const { getD1Binding } = await import("../../db");
-    return createAttendanceStore(getD1Binding());
+    return createAttendanceStore(await getD1Binding());
   } catch (error) {
     throw mapDatabaseError(error);
   }
@@ -836,13 +842,13 @@ async function attendanceCommandFingerprint(command: AttendanceCommand) {
 }
 
 function mapDatabaseError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  if (
-    message.includes("uq_attendance_entries_active_artist_date") ||
-    message.includes(
-      "UNIQUE constraint failed: attendance_entries.artist_slug, attendance_entries.service_date",
-    )
-  ) {
+  // Postgres unique-violation errors carry SQLSTATE 23505 plus the
+  // constraint name — not the SQLite error-text this used to pattern-match
+  // on. `error.code`/`error.constraint` come from node-postgres's
+  // DatabaseError shape (see https://www.postgresql.org/docs/current/errcodes-appendix.html).
+  const code = (error as { code?: string } | null)?.code;
+  const constraint = (error as { constraint?: string } | null)?.constraint;
+  if (code === "23505" && constraint === "uq_attendance_entries_active_artist_date") {
     return new AttendanceStoreError(
       "schedule_conflict",
       "An active attendance entry already exists for this cast member and date.",

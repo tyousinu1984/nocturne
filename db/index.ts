@@ -1,5 +1,5 @@
-import { getSQLiteD1Binding } from "./sqlite-d1";
+import { getPostgresD1Binding } from "./postgres-d1";
 
 export function getD1Binding() {
-  return getSQLiteD1Binding();
+  return getPostgresD1Binding();
 }

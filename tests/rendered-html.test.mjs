@@ -1,21 +1,31 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { after, before, test } from "node:test";
+import pg from "pg";
 
+const { Pool } = pg;
 const projectRoot = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
+const databaseUrl =
+  process.env.DATABASE_URL ?? "postgres://nocturne:nocturne@db:5432/nocturne";
 let serverProcess;
 let baseUrl;
-let temporaryDirectory;
 let serverOutput = "";
 
 before(async () => {
+  // This spawned server applies migrations against the database's default
+  // `public` schema (unqualified table names, default search_path) — reset
+  // it to a clean slate first so repeat runs don't collide with data a
+  // previous run left behind (e.g. the "yuna" cast account created by the
+  // "authenticated attendance writes persist..." test below).
+  const resetPool = new Pool({ connectionString: databaseUrl });
+  await resetPool.query("DROP SCHEMA IF EXISTS public CASCADE");
+  await resetPool.query("CREATE SCHEMA public");
+  await resetPool.end();
+
   const port = await reservePort();
-  temporaryDirectory = mkdtempSync(join(tmpdir(), "nocturne-node-test-"));
   baseUrl = `http://127.0.0.1:${port}`;
   serverProcess = spawn(process.execPath, ["dist/standalone/server.js"], {
     cwd: projectRoot,
@@ -23,7 +33,7 @@ before(async () => {
       ...process.env,
       HOST: "127.0.0.1",
       PORT: String(port),
-      NOCTURNE_DATABASE_PATH: join(temporaryDirectory, "nocturne.sqlite"),
+      DATABASE_URL: databaseUrl,
       NOCTURNE_SESSION_SECRET:
         "rendered-test-session-secret-with-at-least-thirty-two-characters",
     },
@@ -41,9 +51,6 @@ before(async () => {
 
 after(() => {
   serverProcess?.kill("SIGTERM");
-  if (temporaryDirectory) {
-    rmSync(temporaryDirectory, { recursive: true, force: true });
-  }
 });
 
 async function render(pathname = "/", options = {}) {
@@ -54,45 +61,92 @@ async function render(pathname = "/", options = {}) {
   });
 }
 
-test("server-renders the Nocturne catalogue", async () => {
-  const response = await render();
+test("unprefixed paths redirect to a locale, chosen by Accept-Language", async () => {
+  // The server sends a relative Location header ("/ja", not an absolute
+  // URL) — new URL() needs an explicit base to parse that.
+  const locationPath = (response) => new URL(response.headers.get("location"), baseUrl).pathname;
+
+  const noPreference = await render("/");
+  assert.equal(noPreference.status, 307);
+  assert.equal(locationPath(noPreference), "/ja");
+
+  const english = await render("/", { headers: { "accept-language": "en-US,en;q=0.9" } });
+  assert.equal(locationPath(english), "/en");
+
+  const chinese = await render("/", { headers: { "accept-language": "zh-CN,zh;q=0.9" } });
+  assert.equal(locationPath(chinese), "/zh");
+
+  const profileRedirect = await render("/profile/aika");
+  assert.equal(profileRedirect.status, 307);
+  assert.equal(locationPath(profileRedirect), "/ja/profile/aika");
+});
+
+test("/api/* and /health are never locale-redirected", async () => {
+  const health = await render("/health", { headers: { accept: "application/json" } });
+  assert.equal(health.status, 200);
+
+  const publicApi = await render("/api/public/attendance?artist=aika", {
+    headers: { accept: "application/json" },
+  });
+  assert.equal(publicApi.status, 200);
+});
+
+test("server-renders the Nocturne catalogue in Japanese by default", async () => {
+  const response = await render("/ja");
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.doesNotMatch(html, /codex-preview/i);
-  assert.match(html, /<title>Cast Directory \| NOCTURNE TOKYO<\/title>/i);
-  assert.match(html, /TONIGHT/);
-  assert.match(html, /MEET THE NOCTURNE LINEUP/);
-  assert.match(html, /12 CAST PROFILES ARE NOW LIVE/);
+  assert.match(html, /<html lang="ja">/);
+  assert.match(html, /<title>キャストディレクトリ \| NOCTURNE TOKYO<\/title>/);
+  assert.match(html, /今夜の/);
+  assert.match(html, /NOCTURNE のラインナップをチェック/);
+  assert.match(html, /12名のキャストプロフィールが公開されました/);
   assert.match(html, /\/photos-preview\/aika-01\.jpg/);
   assert.match(html, /\/photos-preview\/yuna-01\.jpg/);
-  assert.match(html, /No booking, payment or contact service is provided/);
+  assert.match(html, /予約・決済・連絡サービスの提供はありません/);
   assert.match(html, /aria-modal="true"/);
   assert.match(html, /id="mobile-menu"[^>]*aria-hidden="true"[^>]*inert/i);
   assert.doesNotMatch(html, /hentaitokyo/i);
 });
 
+test("server-renders the Nocturne catalogue in English and Chinese", async () => {
+  const english = await render("/en");
+  assert.equal(english.status, 200);
+  const englishHtml = await english.text();
+  assert.match(englishHtml, /<html lang="en">/);
+  assert.match(englishHtml, /<title>Cast Directory \| NOCTURNE TOKYO<\/title>/);
+  assert.match(englishHtml, /MEET THE NOCTURNE LINEUP/);
+
+  const chinese = await render("/zh");
+  assert.equal(chinese.status, 200);
+  const chineseHtml = await chinese.text();
+  assert.match(chineseHtml, /<html lang="zh">/);
+  assert.match(chineseHtml, /<title>卡司名录 \| NOCTURNE TOKYO<\/title>/);
+  assert.match(chineseHtml, /浏览 NOCTURNE 全部阵容/);
+});
+
 test("server-renders a fictional profile route", async () => {
-  const response = await render("/profile/aika");
+  const response = await render("/ja/profile/aika");
   assert.equal(response.status, 200);
   const html = await response.text();
 
   assert.match(html, /Aika Profile/);
-  assert.match(html, /Movement artist/);
-  assert.match(html, /AIKA&#x27;S CURRENT INDEX/);
+  assert.match(html, /ムーブメントアーティスト/);
+  assert.match(html, /Aikaの最新インデックス/);
   assert.match(html, /\/photos-preview\/aika-01\.jpg/);
-  assert.match(html, /RETURN TO CAST DIRECTORY/);
+  assert.match(html, /キャストディレクトリへ戻る/);
 });
 
 test("admin fails closed without the trusted reverse-proxy header", async () => {
-  const response = await render("/admin");
+  const response = await render("/ja/admin");
   assert.equal(response.status, 404);
   assert.doesNotMatch(await response.text(), /AUTHORIZED OPERATIONS ALPHA/i);
 });
 
 test("admin renders only after the reverse proxy authenticates the operator", async () => {
-  const response = await render("/admin", {
+  const response = await render("/ja/admin", {
     headers: { "x-nocturne-admin-authenticated": "1" },
   });
   assert.equal(response.status, 200);
@@ -100,20 +154,24 @@ test("admin renders only after the reverse proxy authenticates the operator", as
   assert.match(html, /AUTHORIZED OPERATIONS ALPHA/i);
   assert.match(html, /STORE ACCESS/i);
   assert.match(html, /STAFF ACCESS/i);
-  assert.match(html, /durable local SQLite/i);
+  assert.match(html, /durable PostgreSQL storage/i);
   assert.doesNotMatch(html, /store-owner/i);
 });
 
 test("staff portal renders in an ordinary browser without an OpenAI account", async () => {
-  const response = await render("/staff");
+  const response = await render("/ja/staff");
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /CAST PORTAL/i);
+  // Matches the localized <title> (staff-portal.tsx itself isn't
+  // translated yet — see the i18n plan's deferred scope — so its actual
+  // loading-state markup still reads "MY ATTENDANCE"/"CHECKING STAFF
+  // SESSION…" in English regardless of locale).
+  assert.match(html, /キャストポータル/);
   assert.match(html, /MY ATTENDANCE/i);
   assert.doesNotMatch(html, /openai|chatgpt|codex/i);
 });
 
-test("health confirms the SQLite migration set", async () => {
+test("health confirms the Postgres migration set", async () => {
   const response = await render("/health", {
     headers: { accept: "application/json" },
   });
@@ -121,8 +179,8 @@ test("health confirms the SQLite migration set", async () => {
   assert.deepEqual(await response.json(), {
     status: "ok",
     app: "nocturne-tokyo",
-    storage: "sqlite",
-    migrations: 3,
+    storage: "postgres",
+    migrations: 1,
   });
 });
 

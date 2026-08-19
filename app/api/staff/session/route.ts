@@ -52,8 +52,12 @@ export async function POST(request: Request) {
     typeof payload.artistSlug === "string" ? payload.artistSlug.trim() : "";
   const credential =
     typeof payload.credential === "string" ? payload.credential.trim() : "";
+  // Caddy is the only reverse proxy in front of this service and appends the
+  // real client address as the last hop; the leading hops can be forged by
+  // the client itself, so trusting the first value would let an attacker
+  // rotate a fake IP per request and bypass the login rate limit below.
   const source =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || "local";
   const rateKey = `${source}:${artistSlug || "unknown"}`;
   const limit = staffLoginRateLimit(rateKey);
   if (limit.blocked) {

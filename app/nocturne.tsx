@@ -9,7 +9,19 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { usePathname } from "next/navigation";
 import { artists, type Artist } from "./data";
+import { useTranslations } from "../i18n/context";
+import { localeHref } from "../i18n/locale-path";
+import { localizeArtist } from "../i18n/localize-artist";
+import { SUPPORTED_LOCALES, localeLabel, type Locale } from "../i18n/locales";
+import {
+  cardPortraitAlt,
+  currentIndexTitle,
+  notesFromTitle,
+  profilePortraitAlt,
+  showProfilePhotoAria,
+} from "../i18n/messages";
 
 type StaticLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   href: string;
@@ -23,59 +35,20 @@ function Link({ href, children, ...props }: StaticLinkProps) {
   );
 }
 
-const navItems = [
-  ["HOME", "/"],
-  ["CAST", "/#directory"],
-  ["SCHEDULE", "/#schedule"],
-  ["RANKING", "/#ranking"],
-  ["SYSTEM", "/#system"],
-  ["ACCESS", "/#access"],
-  ["REVIEWS", "/#reviews"],
-  ["BLOG", "/#journal"],
-  ["FAQ", "/#faq"],
-  ["CONTACT", "/#contact"],
-];
-
-const quickLinks = [
-  { number: "01", title: "FIRST GUIDE", sub: "How to explore", slug: "aika", href: "#system" },
-  { number: "02", title: "ALL CAST", sub: "Meet the lineup", slug: "ren", href: "#directory" },
-  { number: "03", title: "SCHEDULE", sub: "This week", slug: "mio", href: "#schedule" },
-  { number: "04", title: "RANKING", sub: "Most viewed", slug: "sora", href: "#ranking" },
-  { number: "05", title: "STUDIO INFO", sub: "Tokyo locations", slug: "yuna", href: "#access" },
-];
-
-const reviews = [
-  {
-    title: "A polished night-time directory",
-    body: "The profiles are easy to compare and every status is visible before opening a page.",
-    date: "2026.08.05",
-  },
-  {
-    title: "Dense, direct and surprisingly clear",
-    body: "The large cast grid feels energetic while the filters keep the browsing experience manageable.",
-    date: "2026.08.03",
-  },
-  {
-    title: "The profile pages carry the same rhythm",
-    body: "Portraits, schedules, personal notes and reviews all stay in one continuous visual flow.",
-    date: "2026.07.30",
-  },
-  {
-    title: "Strong Tokyo directory character",
-    body: "Black, white and neon accents make the entire site feel immediate and recognisable.",
-    date: "2026.07.28",
-  },
-  {
-    title: "The mobile menu is quick to understand",
-    body: "The compact navigation keeps the long directory usable on a small screen.",
-    date: "2026.07.24",
-  },
-  {
-    title: "A useful editorial showcase",
-    body: "There is plenty to explore without introducing messaging, payment or reservation flows.",
-    date: "2026.07.20",
-  },
-];
+// Static (untranslated) href list — labels come from dictionary.nav at
+// render time via LocalizedLink below.
+const navHrefs = [
+  ["home", "/"],
+  ["cast", "/#directory"],
+  ["schedule", "/#schedule"],
+  ["ranking", "/#ranking"],
+  ["system", "/#system"],
+  ["access", "/#access"],
+  ["reviews", "/#reviews"],
+  ["blog", "/#journal"],
+  ["faq", "/#faq"],
+  ["contact", "/#contact"],
+] as const;
 
 function ArrowIcon() {
   return (
@@ -151,6 +124,7 @@ function artistPhotoPath(slug: string, index: number) {
 }
 
 function AgeGate() {
+  const { dictionary } = useTranslations();
   const [declined, setDeclined] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const confirmed = useSyncExternalStore(
@@ -233,59 +207,84 @@ function AgeGate() {
         aria-modal="true"
         aria-labelledby="gate-title"
         aria-describedby="gate-copy"
+        aria-label={dictionary.ageGate.ariaLabel}
       >
-        <p className="gate-overline">TOKYO NIGHT DIRECTORY</p>
+        <p className="gate-overline">{dictionary.ageGate.overline}</p>
         <div className="gate-logo">
           <span>NOCTURNE</span>
-          <small>東京・夜のエンターテインメントガイド</small>
+          <small>{dictionary.ageGate.logoSub}</small>
         </div>
         <div className="gate-rule" />
         {declined ? (
           <div className="gate-declined" role="status">
-            <h2 id="gate-title">ENTRY PAUSED</h2>
-            <p id="gate-copy">This directory is intended for visitors aged 21 and over.</p>
+            <h2 id="gate-title">{dictionary.ageGate.declinedTitle}</h2>
+            <p id="gate-copy">{dictionary.ageGate.declinedBody}</p>
             <button type="button" className="gate-text-button" onClick={() => setDeclined(false)}>
-              RETURN
+              {dictionary.ageGate.return}
             </button>
           </div>
         ) : (
           <>
-            <h2 id="gate-title">WELCOME TO NOCTURNE TOKYO</h2>
-            <p id="gate-copy">
-              This editorial directory is an adults-only visual preview. Please
-              confirm that you are 21 years of age or older.
-            </p>
+            <h2 id="gate-title">{dictionary.ageGate.welcomeTitle}</h2>
+            <p id="gate-copy">{dictionary.ageGate.welcomeBody}</p>
             <div className="gate-actions">
               <button type="button" className="gate-enter" onClick={accept}>
-                ENTER 21+
+                {dictionary.ageGate.enter}
                 <ArrowIcon />
               </button>
               <button type="button" className="gate-exit" onClick={() => setDeclined(true)}>
-                EXIT
+                {dictionary.ageGate.exit}
               </button>
             </div>
           </>
         )}
-        <p className="gate-note">
-          Profile names and descriptions are temporary preview copy. No booking,
-          payment or contact service is provided.
-        </p>
+        <p className="gate-note">{dictionary.ageGate.note}</p>
       </div>
     </div>
   );
 }
 
 function Brand({ compact = false }: { compact?: boolean }) {
+  const { locale, dictionary } = useTranslations();
   return (
-    <Link className={`brand-lockup ${compact ? "is-compact" : ""}`} href="/">
+    <Link className={`brand-lockup ${compact ? "is-compact" : ""}`} href={localeHref(locale, "/")}>
       <strong>NOCTURNE</strong>
       <span>TOKYO</span>
-      <small>NIGHT ENTERTAINMENT DIRECTORY</small>
+      <small>{dictionary.brand.sub}</small>
     </Link>
   );
 }
 
+function LanguageSwitcher() {
+  const { locale } = useTranslations();
+  const pathname = usePathname() ?? `/${locale}`;
+
+  function hrefForLocale(target: Locale) {
+    const segments = pathname.split("/");
+    segments[1] = target;
+    return segments.join("/") || `/${target}`;
+  }
+
+  return (
+    <span className="language-select">
+      {SUPPORTED_LOCALES.map((code, index) => (
+        <span key={code}>
+          {index > 0 && <i aria-hidden="true"> / </i>}
+          <a
+            href={hrefForLocale(code)}
+            aria-current={code === locale ? "true" : undefined}
+            className={code === locale ? "is-active" : undefined}
+          >
+            {localeLabel[code]}
+          </a>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function Header() {
+  const { locale, dictionary } = useTranslations();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -360,14 +359,14 @@ function Header() {
           <div className="header-tools">
             <span className="open-status">
               <i />
-              OPEN TODAY
+              {dictionary.header.openToday}
             </span>
-            <span className="language-select">EN / JP</span>
+            <LanguageSwitcher />
             <button
               type="button"
               className="menu-button"
               ref={menuButtonRef}
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-label={menuOpen ? dictionary.header.closeMenu : dictionary.header.openMenu}
               aria-expanded={menuOpen}
               aria-controls="mobile-menu"
               onClick={() => setMenuOpen((current) => !current)}
@@ -378,9 +377,13 @@ function Header() {
         </div>
       </div>
 
-      <section className="quick-section" aria-label="Quick guide" data-menu-underlay>
+      <section
+        className="quick-section"
+        aria-label={dictionary.header.quickGuideAria}
+        data-menu-underlay
+      >
         <div className="site-width quick-grid">
-          {quickLinks.map((item) => (
+          {dictionary.quickLinks.map((item) => (
             <a href={item.href} className="quick-card" key={item.number}>
               <img src={portraitPath(item.slug)} alt="" />
               <span className="quick-shade" />
@@ -397,13 +400,13 @@ function Header() {
 
       <nav
         className="main-navigation"
-        aria-label="Primary navigation"
+        aria-label={dictionary.header.primaryNavAria}
         data-menu-underlay
       >
         <div className="site-width main-navigation-inner">
-          {navItems.map(([label, href]) => (
-            <Link key={label} href={href}>
-              {label}
+          {navHrefs.map(([key, href]) => (
+            <Link key={key} href={localeHref(locale, href)}>
+              {dictionary.nav[key]}
             </Link>
           ))}
         </div>
@@ -413,7 +416,7 @@ function Header() {
         id="mobile-menu"
         ref={menuRef}
         className={`mobile-menu ${menuOpen ? "is-open" : ""}`}
-        aria-label="Mobile navigation"
+        aria-label={dictionary.header.mobileNavAria}
         aria-hidden={!menuOpen}
         inert={!menuOpen}
       >
@@ -421,16 +424,16 @@ function Header() {
           <Brand compact />
           <button
             type="button"
-            aria-label="Close menu"
+            aria-label={dictionary.header.closeMenu}
             onClick={() => setMenuOpen(false)}
           >
             ×
           </button>
         </div>
-        {navItems.map(([label, href], index) => (
-          <Link href={href} key={label} onClick={() => setMenuOpen(false)}>
+        {navHrefs.map(([key, href], index) => (
+          <Link href={localeHref(locale, href)} key={key} onClick={() => setMenuOpen(false)}>
             <span>{String(index + 1).padStart(2, "0")}</span>
-            <b>{label}</b>
+            <b>{dictionary.nav[key]}</b>
             <ArrowIcon />
           </Link>
         ))}
@@ -440,6 +443,7 @@ function Header() {
 }
 
 function Hero() {
+  const { dictionary } = useTranslations();
   const heroArtists = ["ren", "mio", "sora", "yuna"];
 
   return (
@@ -447,7 +451,7 @@ function Hero() {
       <div
         className="hero-lineup hero-photo-grid"
         role="img"
-        aria-label="Four adult performers from the Nocturne directory"
+        aria-label={dictionary.hero.ariaLabel}
       >
         {heroArtists.map((slug) => (
           <img src={portraitPath(slug)} alt="" key={slug} />
@@ -455,50 +459,54 @@ function Hero() {
       </div>
       <span className="hero-darken" />
       <div className="site-width hero-content">
-        <p className="hero-kicker">TOKYO / AOYAMA / GINZA / DAIKANYAMA</p>
+        <p className="hero-kicker">{dictionary.hero.kicker}</p>
         <h1>
-          TONIGHT&apos;S
+          {dictionary.hero.headlineLine1}
           <br />
-          <em>CAST FILE</em>
+          <em>{dictionary.hero.headlineLine2}</em>
         </h1>
-        <p className="hero-description">
-          Meet the latest performers, creators and hosts featured in the
-          Nocturne Tokyo editorial directory.
-        </p>
+        <p className="hero-description">{dictionary.hero.description}</p>
         <a href="#directory" className="hero-button">
-          VIEW ALL CAST
+          {dictionary.hero.viewAllCast}
           <ArrowIcon />
         </a>
       </div>
       <div className="hero-badge">
-        <span>2026</span>
-        <b>NEW</b>
-        <small>LINEUP</small>
+        <span>{dictionary.hero.badgeYear}</span>
+        <b>{dictionary.hero.badgeNew}</b>
+        <small>{dictionary.hero.badgeLineup}</small>
       </div>
     </section>
   );
 }
 
 function LiveTicker() {
+  const { locale, dictionary } = useTranslations();
   const names = [...artists.slice(0, 9), ...artists.slice(0, 9)];
   return (
     <section className="live-ticker" id="schedule">
       <div className="live-label">
         <i />
-        NOW ONLINE
+        {dictionary.ticker.nowOnline}
       </div>
       <div className="live-window">
         <div className="live-track">
-          {names.map((artist, index) => (
-            <Link href={`/profile/${artist.slug}`} key={`${artist.slug}-${index}`}>
-              <img src={portraitPath(artist.slug)} alt="" />
-              <span>
-                <b>{artist.name}</b>
-                <small>{artist.district}</small>
-              </span>
-              <em>{artist.status}</em>
-            </Link>
-          ))}
+          {names.map((artist, index) => {
+            const localized = localizeArtist(artist, dictionary);
+            return (
+              <Link
+                href={localeHref(locale, `/profile/${artist.slug}`)}
+                key={`${artist.slug}-${index}`}
+              >
+                <img src={portraitPath(artist.slug)} alt="" />
+                <span>
+                  <b>{artist.name}</b>
+                  <small>{localized.localizedDistrict}</small>
+                </span>
+                <em>{localized.localizedStatus}</em>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -506,20 +514,21 @@ function LiveTicker() {
 }
 
 function NoticeBanner() {
+  const { dictionary } = useTranslations();
   return (
     <section className="notice-wrap">
       <div className="site-width notice-banner">
         <div className="notice-date">
           <b>06</b>
-          <span>AUG</span>
+          <span>{dictionary.notice.month}</span>
         </div>
         <div>
-          <p>UPDATED TODAY</p>
-          <h2>12 CAST PROFILES ARE NOW LIVE</h2>
-          <span>New schedules, photo updates and directory notes have been added.</span>
+          <p>{dictionary.notice.updatedToday}</p>
+          <h2>{dictionary.notice.title}</h2>
+          <span>{dictionary.notice.body}</span>
         </div>
         <a href="#directory">
-          CHECK TODAY&apos;S CAST
+          {dictionary.notice.cta}
           <ArrowIcon />
         </a>
       </div>
@@ -550,35 +559,38 @@ function SectionTitle({
 }
 
 function ArtistCard({ artist, index }: { artist: Artist; index: number }) {
+  const { locale, dictionary } = useTranslations();
+  const localized = localizeArtist(artist, dictionary);
   const locationClass = artist.district.toLowerCase();
+  const profileHref = localeHref(locale, `/profile/${artist.slug}`);
   return (
     <article className="cast-card">
-      <Link className="cast-photo" href={`/profile/${artist.slug}`}>
-        <img src={portraitPath(artist.slug)} alt={`${artist.name}, profile portrait`} />
-        <span className="language-chip">{artist.languages.join(" / ")}</span>
+      <Link className="cast-photo" href={profileHref}>
+        <img src={portraitPath(artist.slug)} alt={cardPortraitAlt(locale, artist.name)} />
+        <span className="language-chip">{localized.localizedLanguages.join(" / ")}</span>
         <span className="cast-id">N° {String(index + 1).padStart(2, "0")}</span>
-        <span className={`cast-location is-${locationClass}`}>{artist.district}</span>
+        <span className={`cast-location is-${locationClass}`}>{localized.localizedDistrict}</span>
       </Link>
       <div className="cast-bars">
-        <span className={`rank-tag is-${artist.tier.toLowerCase()}`}>{artist.tier}</span>
+        <span className={`rank-tag is-${artist.tier.toLowerCase()}`}>{localized.localizedTier}</span>
         <span className="status-tag">
           <i />
-          {artist.status}
+          {localized.localizedStatus}
         </span>
       </div>
       <div className="cast-info">
         <h3>
-          <Link href={`/profile/${artist.slug}`}>{artist.name}</Link>
+          <Link href={profileHref}>{artist.name}</Link>
         </h3>
-        <p className="cast-role">{artist.role}</p>
-        <p className="cast-comment">{artist.shortNote}</p>
+        <p className="cast-role">{localized.localizedRole}</p>
+        <p className="cast-comment">{localized.localizedShortNote}</p>
         <div className="cast-skills">
-          {artist.disciplines.slice(0, 3).map((item) => (
+          {localized.localizedDisciplines.slice(0, 3).map((item) => (
             <span key={item}>{item}</span>
           ))}
         </div>
-        <Link className="profile-link" href={`/profile/${artist.slug}`}>
-          OPEN PROFILE
+        <Link className="profile-link" href={profileHref}>
+          {dictionary.card.openProfile}
           <ArrowIcon />
         </Link>
       </div>
@@ -587,8 +599,9 @@ function ArtistCard({ artist, index }: { artist: Artist; index: number }) {
 }
 
 function Directory() {
-  const [district, setDistrict] = useState("All");
-  const [status, setStatus] = useState("All");
+  const { dictionary } = useTranslations();
+  const [district, setDistrict] = useState<"All" | "Aoyama" | "Ginza" | "Daikanyama">("All");
+  const [status, setStatus] = useState<"All" | "Tonight" | "This week" | "Private">("All");
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(8);
 
@@ -608,31 +621,34 @@ function Directory() {
     setVisibleCount(8);
   }
 
+  const districtValues = ["All", "Aoyama", "Ginza", "Daikanyama"] as const;
+  const statusValues = ["All", "Tonight", "This week", "Private"] as const;
+
   return (
     <section className="directory" id="directory">
       <div className="site-width">
         <SectionTitle
-          eyebrow="CAST DIRECTORY"
-          title="MEET THE NOCTURNE LINEUP"
-          note="Browse every editorial profile by district, activity and current status."
+          eyebrow={dictionary.sections.directory.eyebrow}
+          title={dictionary.sections.directory.title}
+          note={dictionary.sections.directory.note}
         />
 
         <div className="directory-toolbar" id="districts">
           <label className="directory-search">
             <SearchIcon />
-            <span className="sr-only">Search the cast directory</span>
+            <span className="sr-only">{dictionary.directory.searchSrLabel}</span>
             <input
               value={query}
-              placeholder="SEARCH NAME OR STYLE"
+              placeholder={dictionary.directory.searchPlaceholder}
               onChange={(event) => {
                 setQuery(event.target.value);
                 resetCount();
               }}
             />
           </label>
-          <div className="filter-row" aria-label="District filter">
-            <b>AREA</b>
-            {["All", "Aoyama", "Ginza", "Daikanyama"].map((value) => (
+          <div className="filter-row" aria-label={dictionary.directory.districtFilterAria}>
+            <b>{dictionary.directory.areaLabel}</b>
+            {districtValues.map((value) => (
               <button
                 type="button"
                 className={district === value ? "is-active" : ""}
@@ -643,13 +659,13 @@ function Directory() {
                 }}
                 key={value}
               >
-                {value.toUpperCase()}
+                {dictionary.filters.districts[value]}
               </button>
             ))}
           </div>
-          <div className="filter-row" aria-label="Status filter">
-            <b>STATUS</b>
-            {["All", "Tonight", "This week", "Private"].map((value) => (
+          <div className="filter-row" aria-label={dictionary.directory.statusFilterAria}>
+            <b>{dictionary.directory.statusLabel}</b>
+            {statusValues.map((value) => (
               <button
                 type="button"
                 className={status === value ? "is-active" : ""}
@@ -660,15 +676,17 @@ function Directory() {
                 }}
                 key={value}
               >
-                {value.toUpperCase()}
+                {dictionary.filters.statuses[value]}
               </button>
             ))}
           </div>
         </div>
 
         <div className="directory-result" role="status">
-          <b>{String(filtered.length).padStart(2, "0")} PROFILES</b>
-          <span>LAST UPDATE 2026.08.06 / 19:00 JST</span>
+          <b>
+            {String(filtered.length).padStart(2, "0")} {dictionary.directory.profilesSuffix}
+          </b>
+          <span>{dictionary.directory.lastUpdate}</span>
         </div>
 
         {filtered.length > 0 ? (
@@ -683,7 +701,7 @@ function Directory() {
           </div>
         ) : (
           <div className="directory-empty">
-            <b>NO PROFILE FOUND</b>
+            <b>{dictionary.directory.noProfileFound}</b>
             <button
               type="button"
               onClick={() => {
@@ -692,7 +710,7 @@ function Directory() {
                 setQuery("");
               }}
             >
-              RESET FILTERS
+              {dictionary.directory.resetFilters}
             </button>
           </div>
         )}
@@ -703,7 +721,7 @@ function Directory() {
             className="more-cast"
             onClick={() => setVisibleCount((current) => current + 4)}
           >
-            SHOW MORE CAST
+            {dictionary.directory.showMoreCast}
             <ArrowIcon />
           </button>
         )}
@@ -713,27 +731,31 @@ function Directory() {
 }
 
 function Ranking() {
+  const { locale, dictionary } = useTranslations();
   return (
     <section className="ranking-section" id="ranking">
       <div className="site-width">
         <SectionTitle
-          eyebrow="WEEKLY RANKING"
-          title="MOST VIEWED PROFILES"
-          note="The five profiles receiving the most editorial views this week."
+          eyebrow={dictionary.sections.ranking.eyebrow}
+          title={dictionary.sections.ranking.title}
+          note={dictionary.sections.ranking.note}
           light
         />
         <div className="ranking-grid">
-          {artists.slice(0, 5).map((artist, index) => (
-            <Link href={`/profile/${artist.slug}`} key={artist.slug}>
-              <span className="ranking-number">0{index + 1}</span>
-              <img src={portraitPath(artist.slug)} alt="" />
-              <div>
-                <b>{artist.name}</b>
-                <small>{artist.role}</small>
-              </div>
-              <ArrowIcon />
-            </Link>
-          ))}
+          {artists.slice(0, 5).map((artist, index) => {
+            const localized = localizeArtist(artist, dictionary);
+            return (
+              <Link href={localeHref(locale, `/profile/${artist.slug}`)} key={artist.slug}>
+                <span className="ranking-number">0{index + 1}</span>
+                <img src={portraitPath(artist.slug)} alt="" />
+                <div>
+                  <b>{artist.name}</b>
+                  <small>{localized.localizedRole}</small>
+                </div>
+                <ArrowIcon />
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -741,26 +763,22 @@ function Ranking() {
 }
 
 function SystemGuide() {
-  const steps = [
-    ["01", "CHECK THE CAST", "Compare profiles, styles and current editorial status."],
-    ["02", "OPEN A PROFILE", "View portrait updates, schedules, notes and archive entries."],
-    ["03", "FOLLOW THE JOURNAL", "Return for weekly ranking and new directory stories."],
-  ];
+  const { dictionary } = useTranslations();
   return (
     <section className="system-guide" id="system">
       <div className="site-width">
         <SectionTitle
-          eyebrow="FIRST GUIDE"
-          title="HOW TO EXPLORE NOCTURNE"
-          note="A simple three-step path through the Tokyo night directory."
+          eyebrow={dictionary.sections.systemGuide.eyebrow}
+          title={dictionary.sections.systemGuide.title}
+          note={dictionary.sections.systemGuide.note}
         />
         <div className="guide-grid">
-          {steps.map(([number, title, copy]) => (
-            <article key={number}>
-              <span>{number}</span>
+          {dictionary.systemGuideSteps.map((step) => (
+            <article key={step.number}>
+              <span>{step.number}</span>
               <div>
-                <h3>{title}</h3>
-                <p>{copy}</p>
+                <h3>{step.title}</h3>
+                <p>{step.copy}</p>
               </div>
             </article>
           ))}
@@ -771,16 +789,17 @@ function SystemGuide() {
 }
 
 function Reviews() {
+  const { dictionary } = useTranslations();
   return (
     <section className="review-section" id="reviews">
       <div className="site-width">
         <SectionTitle
-          eyebrow="READER REVIEWS"
-          title="LATEST DIRECTORY NOTES"
-          note="Recent impressions from visitors exploring Nocturne Tokyo."
+          eyebrow={dictionary.sections.reviews.eyebrow}
+          title={dictionary.sections.reviews.title}
+          note={dictionary.sections.reviews.note}
         />
         <div className="review-grid">
-          {reviews.map((review, index) => (
+          {dictionary.reviewsData.map((review, index) => (
             <article key={review.title}>
               <div className="review-icon">
                 <img src={portraitPath(artists[index].slug)} alt="" />
@@ -798,45 +817,40 @@ function Reviews() {
   );
 }
 
+// Static (untranslated) journal metadata — which artist and how many days
+// ago each story runs — paired with dictionary.journalStories by index for
+// the translated category/date/title.
+const journalArtistIndexes = [7, 9] as const;
+
 function Journal() {
-  const stories = [
-    {
-      artist: artists[7],
-      category: "AOYAMA NIGHT NOTE",
-      date: "2026.08.06",
-      title: "Three ways the city changes after the last train",
-    },
-    {
-      artist: artists[9],
-      category: "CAST INTERVIEW",
-      date: "2026.08.02",
-      title: "Hana talks colour, rhythm and the perfect late-night room",
-    },
-  ];
+  const { locale, dictionary } = useTranslations();
   return (
     <section className="journal-section" id="journal">
       <div className="site-width">
         <SectionTitle
-          eyebrow="LATEST BLOG"
-          title="STORIES FROM TOKYO"
-          note="New interviews, visual notes and city guides from the directory."
+          eyebrow={dictionary.sections.journal.eyebrow}
+          title={dictionary.sections.journal.title}
+          note={dictionary.sections.journal.note}
           light
         />
         <div className="journal-cards">
-          {stories.map((story) => (
-            <article key={story.title}>
-              <img src={portraitPath(story.artist.slug)} alt="" />
-              <div>
-                <span>{story.category}</span>
-                <time>{story.date}</time>
-                <h3>{story.title}</h3>
-                <Link href={`/profile/${story.artist.slug}`}>
-                  READ PROFILE
-                  <ArrowIcon />
-                </Link>
-              </div>
-            </article>
-          ))}
+          {dictionary.journalStories.map((story, index) => {
+            const artist = artists[journalArtistIndexes[index]];
+            return (
+              <article key={story.title}>
+                <img src={portraitPath(artist.slug)} alt="" />
+                <div>
+                  <span>{story.category}</span>
+                  <time>{story.date}</time>
+                  <h3>{story.title}</h3>
+                  <Link href={localeHref(locale, `/profile/${artist.slug}`)}>
+                    {dictionary.card.readProfile}
+                    <ArrowIcon />
+                  </Link>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -844,53 +858,46 @@ function Journal() {
 }
 
 function Footer() {
+  const { locale, dictionary } = useTranslations();
   return (
     <footer className="footer" id="contact" data-menu-underlay>
       <section className="access-band" id="access">
         <div className="site-width">
-          <div>
-            <span>01</span>
-            <b>AOYAMA</b>
-            <small>Editorial district</small>
-          </div>
-          <div>
-            <span>02</span>
-            <b>GINZA</b>
-            <small>Central directory</small>
-          </div>
-          <div>
-            <span>03</span>
-            <b>DAIKANYAMA</b>
-            <small>Creative district</small>
-          </div>
+          {dictionary.footer.districts.map((district, index) => (
+            <div key={district.name}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <b>{district.name}</b>
+              <small>{district.note}</small>
+            </div>
+          ))}
         </div>
       </section>
       <div className="site-width footer-main">
         <Brand />
         <div className="footer-links">
           <div>
-            <b>DIRECTORY</b>
-            <Link href="/#directory">All cast</Link>
-            <Link href="/#schedule">Schedule</Link>
-            <Link href="/#ranking">Ranking</Link>
+            <b>{dictionary.footer.groupDirectory}</b>
+            <Link href={localeHref(locale, "/#directory")}>{dictionary.footer.linkAllCast}</Link>
+            <Link href={localeHref(locale, "/#schedule")}>{dictionary.footer.linkSchedule}</Link>
+            <Link href={localeHref(locale, "/#ranking")}>{dictionary.footer.linkRanking}</Link>
           </div>
           <div id="faq">
-            <b>GUIDE</b>
-            <Link href="/#system">First guide</Link>
-            <Link href="/#reviews">Reviews</Link>
-            <Link href="/#journal">Blog</Link>
+            <b>{dictionary.footer.groupGuide}</b>
+            <Link href={localeHref(locale, "/#system")}>{dictionary.footer.linkFirstGuide}</Link>
+            <Link href={localeHref(locale, "/#reviews")}>{dictionary.footer.linkReviews}</Link>
+            <Link href={localeHref(locale, "/#journal")}>{dictionary.footer.linkBlog}</Link>
           </div>
           <div>
-            <b>INFORMATION</b>
-            <p>Temporary profile copy</p>
-            <p>Editorial showcase</p>
-            <p>No booking or payment</p>
+            <b>{dictionary.footer.groupInformation}</b>
+            {dictionary.footer.infoLines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
           </div>
         </div>
       </div>
       <div className="site-width footer-bottom">
-        <span>© 2026 NOCTURNE TOKYO</span>
-        <span>ADULTS-ONLY VISUAL PREVIEW / TEMPORARY PROFILE COPY</span>
+        <span>{dictionary.footer.copyright}</span>
+        <span>{dictionary.footer.disclaimer}</span>
       </div>
     </footer>
   );
@@ -919,6 +926,7 @@ export function HomeExperience() {
 }
 
 function ProfilePhotoGallery({ artist }: { artist: Artist }) {
+  const { locale, dictionary } = useTranslations();
   const [active, setActive] = useState(0);
   const photos = artistPhotos(artist.slug);
   const thumbnailPhotos =
@@ -929,9 +937,12 @@ function ProfilePhotoGallery({ artist }: { artist: Artist }) {
       <div className="profile-main-photo">
         <img
           src={thumbnailPhotos[active]}
-          alt={`${artist.name}, profile portrait ${active + 1}`}
+          alt={profilePortraitAlt(locale, artist.name, active + 1)}
         />
-        <span className="profile-photo-label">PHOTO 0{active + 1}</span>
+        <span className="profile-photo-label">
+          {dictionary.profile.photoLabelPrefix}
+          {active + 1}
+        </span>
       </div>
       <div className="profile-thumbnails">
         {thumbnailPhotos.map((photo, index) => (
@@ -940,7 +951,7 @@ function ProfilePhotoGallery({ artist }: { artist: Artist }) {
             key={`${photo}-${index}`}
             className={active === index ? "is-active" : ""}
             onClick={() => setActive(index)}
-            aria-label={`Show profile photo ${index + 1}`}
+            aria-label={showProfilePhotoAria(locale, index + 1)}
             aria-pressed={active === index}
           >
             <span>
@@ -954,6 +965,8 @@ function ProfilePhotoGallery({ artist }: { artist: Artist }) {
 }
 
 function ProfileSchedule({ artist }: { artist: Artist }) {
+  const { locale, dictionary } = useTranslations();
+  const localized = localizeArtist(artist, dictionary);
   type PublicAttendanceEntry = {
     id: string;
     artistSlug: string;
@@ -1025,8 +1038,8 @@ function ProfileSchedule({ artist }: { artist: Artist }) {
   ) {
     return (
       <div className="profile-schedule-empty" role="status" aria-live="polite">
-        <b>CHECKING ATTENDANCE</b>
-        <span>The current schedule is loading.</span>
+        <b>{dictionary.scheduleState.checkingTitle}</b>
+        <span>{dictionary.scheduleState.checkingBody}</span>
       </div>
     );
   }
@@ -1034,8 +1047,8 @@ function ProfileSchedule({ artist }: { artist: Artist }) {
   if (scheduleState.kind === "unavailable") {
     return (
       <div className="profile-schedule-empty is-unavailable" role="status">
-        <b>ATTENDANCE TEMPORARILY UNAVAILABLE</b>
-        <span>Please check again before planning a visit.</span>
+        <b>{dictionary.scheduleState.unavailableTitle}</b>
+        <span>{dictionary.scheduleState.unavailableBody}</span>
       </div>
     );
   }
@@ -1043,11 +1056,13 @@ function ProfileSchedule({ artist }: { artist: Artist }) {
   if (scheduleState.managed && scheduleState.entries.length === 0) {
     return (
       <div className="profile-schedule-empty" role="status">
-        <b>NO PUBLISHED SHIFTS</b>
-        <span>The operations schedule currently has no public attendance.</span>
+        <b>{dictionary.scheduleState.noShiftsTitle}</b>
+        <span>{dictionary.scheduleState.noShiftsBody}</span>
       </div>
     );
   }
+
+  const intlLocale = locale === "ja" ? "ja-JP" : locale === "zh" ? "zh-CN" : "en-US";
 
   if (scheduleState.managed) {
     return (
@@ -1057,7 +1072,7 @@ function ProfileSchedule({ artist }: { artist: Artist }) {
           return (
             <div key={item.id}>
               <span>
-                {new Intl.DateTimeFormat("en-US", {
+                {new Intl.DateTimeFormat(intlLocale, {
                   weekday: "short",
                   timeZone: "Asia/Tokyo",
                 })
@@ -1077,8 +1092,8 @@ function ProfileSchedule({ artist }: { artist: Artist }) {
 
   return (
     <div className="profile-schedule">
-      {artist.schedule.map((item) => (
-        <div key={item.day}>
+      {localized.localizedSchedule.map((item, index) => (
+        <div key={`${item.day}-${index}`}>
           <span>{item.day}</span>
           <b>{item.date}</b>
           <small>{item.state}</small>
@@ -1089,6 +1104,8 @@ function ProfileSchedule({ artist }: { artist: Artist }) {
 }
 
 export function ProfileExperience({ artist }: { artist: Artist }) {
+  const { locale, dictionary } = useTranslations();
+  const localized = localizeArtist(artist, dictionary);
   const related = artists.filter((candidate) => candidate.slug !== artist.slug).slice(0, 4);
 
   return (
@@ -1099,9 +1116,9 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
         <main className="profile-page" data-menu-underlay>
           <div className="profile-path">
             <div className="site-width">
-              <Link href="/">HOME</Link>
+              <Link href={localeHref(locale, "/")}>{dictionary.profile.breadcrumbHome}</Link>
               <span>/</span>
-              <Link href="/#directory">CAST</Link>
+              <Link href={localeHref(locale, "/#directory")}>{dictionary.profile.breadcrumbCast}</Link>
               <span>/</span>
               <b>{artist.name.toUpperCase()}</b>
             </div>
@@ -1118,16 +1135,16 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
                       artists.findIndex((candidate) => candidate.slug === artist.slug) + 1,
                     ).padStart(2, "0")}
                   </span>
-                  <em>{artist.status}</em>
+                  <em>{localized.localizedStatus}</em>
                   <h1>{artist.name}</h1>
-                  <p>{artist.role}</p>
+                  <p>{localized.localizedRole}</p>
                 </div>
                 <div className="profile-message">
-                  <b>CAST MESSAGE</b>
-                  <p>{artist.biography}</p>
+                  <b>{dictionary.profile.castMessage}</b>
+                  <p>{localized.localizedBiography}</p>
                 </div>
                 <div className="profile-stat-grid">
-                  {artist.stats.map((stat) => (
+                  {localized.localizedStats.map((stat) => (
                     <div key={stat.label}>
                       <span>{stat.label}</span>
                       <b>{stat.value}</b>
@@ -1136,20 +1153,20 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
                 </div>
                 <div className="profile-meta-list">
                   <div>
-                    <span>AREA</span>
-                    <b>{artist.district}</b>
+                    <span>{dictionary.profile.areaLabel}</span>
+                    <b>{localized.localizedDistrict}</b>
                   </div>
                   <div>
-                    <span>LANGUAGE</span>
-                    <b>{artist.languages.join(" / ")}</b>
+                    <span>{dictionary.profile.languageLabel}</span>
+                    <b>{localized.localizedLanguages.join(" / ")}</b>
                   </div>
                   <div>
-                    <span>STYLE</span>
-                    <b>{artist.disciplines.join(" / ")}</b>
+                    <span>{dictionary.profile.styleLabel}</span>
+                    <b>{localized.localizedDisciplines.join(" / ")}</b>
                   </div>
                 </div>
-                <Link className="profile-back-button" href="/#directory">
-                  RETURN TO CAST DIRECTORY
+                <Link className="profile-back-button" href={localeHref(locale, "/#directory")}>
+                  {dictionary.profile.returnToDirectory}
                   <ArrowIcon />
                 </Link>
               </div>
@@ -1159,9 +1176,9 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
           <section className="profile-schedule-section">
             <div className="site-width">
               <SectionTitle
-                eyebrow="WEEKLY SCHEDULE"
-                title={`${artist.name.toUpperCase()}'S CURRENT INDEX`}
-                note="Editorial availability labels for the current five-day directory cycle."
+                eyebrow={dictionary.sections.profileSchedule.eyebrow}
+                title={currentIndexTitle(locale, artist.name)}
+                note={dictionary.sections.profileSchedule.note}
                 light
               />
               <ProfileSchedule artist={artist} />
@@ -1172,14 +1189,17 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
             <div className="site-width">
               <section className="profile-gallery-section">
                 <div className="profile-block-heading">
-                  <span>PHOTO GALLERY</span>
-                  <h2>LATEST PHOTO UPDATES</h2>
+                  <span>{dictionary.profile.galleryEyebrow}</span>
+                  <h2>{dictionary.profile.galleryTitle}</h2>
                 </div>
                 <div className="profile-gallery-grid">
                   {[0, 1, 2, 3, 4, 5].map((index) => (
                     <div key={index}>
                       <img src={artistPhotoPath(artist.slug, index)} alt="" />
-                      <span>UPDATE 0{index + 1}</span>
+                      <span>
+                        {dictionary.profile.updateLabelPrefix}
+                        {index + 1}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -1187,8 +1207,8 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
 
               <section className="profile-blog-section">
                 <div className="profile-block-heading">
-                  <span>LATEST BLOG</span>
-                  <h2>NOTES FROM {artist.name.toUpperCase()}</h2>
+                  <span>{dictionary.profile.blogEyebrow}</span>
+                  <h2>{notesFromTitle(locale, artist.name)}</h2>
                 </div>
                 <div className="profile-blog-grid">
                   {[0, 1].map((index) => (
@@ -1201,13 +1221,10 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
                         <time>2026.08.0{6 - index}</time>
                         <h3>
                           {index === 0
-                            ? "A quick note before tonight"
-                            : "Three details I always notice in Tokyo"}
+                            ? dictionary.profile.blogPost1Title
+                            : dictionary.profile.blogPost2Title}
                         </h3>
-                        <p>
-                          A short editorial update from the Nocturne archive,
-                          collecting colour, music and city observations.
-                        </p>
+                        <p>{dictionary.profile.blogBody}</p>
                       </div>
                     </article>
                   ))}
@@ -1216,11 +1233,11 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
 
               <section className="profile-review-section">
                 <div className="profile-block-heading">
-                  <span>PROFILE REVIEWS</span>
-                  <h2>READER NOTES</h2>
+                  <span>{dictionary.profile.reviewsEyebrow}</span>
+                  <h2>{dictionary.profile.reviewsTitle}</h2>
                 </div>
                 <div className="profile-review-list">
-                  {reviews.slice(0, 5).map((review, index) => (
+                  {dictionary.reviewsData.slice(0, 5).map((review, index) => (
                     <article key={review.title}>
                       <div>
                         <b>0{index + 1}</b>
@@ -1238,8 +1255,8 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
           <section className="related-section">
             <div className="site-width">
               <SectionTitle
-                eyebrow="RELATED CAST"
-                title="MORE PROFILES TO EXPLORE"
+                eyebrow={dictionary.sections.related.eyebrow}
+                title={dictionary.sections.related.title}
                 light
               />
               <div className="cast-grid">

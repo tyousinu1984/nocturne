@@ -7,7 +7,7 @@ import {
 } from "../app/admin/attendance-store.ts";
 import { AttendanceDomainError } from "../app/admin/attendance-domain.ts";
 import { createCastAccountStore } from "../app/admin/cast-account-store.ts";
-import { createSQLiteD1 } from "./helpers/sqlite-d1.mjs";
+import { createPostgresD1 } from "./helpers/postgres-d1.mjs";
 
 const castActor = { userId: "cast-user", role: "cast", artistSlug: "yuna" };
 const adminActor = { userId: "owner-user", role: "admin" };
@@ -47,7 +47,7 @@ async function transition(store, entry, action, idempotencyKey, reason) {
 }
 
 test("published attendance becomes public and cancellation removes it", async (t) => {
-  const d1 = createSQLiteD1();
+  const d1 = await createPostgresD1();
   t.after(() => d1.close());
   const store = createAttendanceStore(d1, { initializeSchema: true });
 
@@ -79,7 +79,7 @@ test("published attendance becomes public and cancellation removes it", async (t
 });
 
 test("administrator can manage every profile while cast remains profile-bound", async (t) => {
-  const d1 = createSQLiteD1();
+  const d1 = await createPostgresD1();
   t.after(() => d1.close());
   const store = createAttendanceStore(d1, { initializeSchema: true });
 
@@ -116,7 +116,7 @@ test("administrator can manage every profile while cast remains profile-bound", 
 });
 
 test("administrator can correct a published schedule without changing its status", async (t) => {
-  const d1 = createSQLiteD1();
+  const d1 = await createPostgresD1();
   t.after(() => d1.close());
   const store = createAttendanceStore(d1, { initializeSchema: true });
 
@@ -156,7 +156,7 @@ test("administrator can correct a published schedule without changing its status
 });
 
 test("idempotent retries return the first result and reject payload reuse", async (t) => {
-  const d1 = createSQLiteD1();
+  const d1 = await createPostgresD1();
   t.after(() => d1.close());
   const store = createAttendanceStore(d1, { initializeSchema: true });
   const command = createCommand("same-key");
@@ -186,7 +186,7 @@ test("idempotent retries return the first result and reject payload reuse", asyn
 });
 
 test("only one command wins a version race", async (t) => {
-  const d1 = createSQLiteD1();
+  const d1 = await createPostgresD1();
   t.after(() => d1.close());
   const store = createAttendanceStore(d1, { initializeSchema: true });
   const created = await store.executeAttendanceCommand(createCommand("race-create"));
@@ -207,7 +207,7 @@ test("only one command wins a version race", async (t) => {
 });
 
 test("an artist can have only one active entry on a service date", async (t) => {
-  const d1 = createSQLiteD1();
+  const d1 = await createPostgresD1();
   t.after(() => d1.close());
   const store = createAttendanceStore(d1, { initializeSchema: true });
 
@@ -223,7 +223,7 @@ test("an artist can have only one active entry on a service date", async (t) => 
 });
 
 test("a failed command batch rolls back both entry and event", async (t) => {
-  const d1 = createSQLiteD1();
+  const d1 = await createPostgresD1();
   t.after(() => d1.close());
   const store = createAttendanceStore(d1, { initializeSchema: true });
   await store.ensureSchema();
@@ -235,16 +235,22 @@ test("a failed command batch rolls back both entry and event", async (t) => {
       error instanceof AttendanceStoreError && error.code === "database_error",
   );
 
-  assert.equal(d1.query("SELECT COUNT(*) AS total FROM attendance_entries")[0].total, 0);
-  assert.equal(d1.query("SELECT COUNT(*) AS total FROM attendance_events")[0].total, 0);
+  assert.equal(
+    Number((await d1.query("SELECT COUNT(*) AS total FROM attendance_entries"))[0].total),
+    0,
+  );
+  assert.equal(
+    Number((await d1.query("SELECT COUNT(*) AS total FROM attendance_events"))[0].total),
+    0,
+  );
 });
 
 test("development DDL stays equivalent to the generated migration", async (t) => {
-  const runtimeD1 = createSQLiteD1();
-  const migrationD1 = createSQLiteD1();
-  t.after(() => {
-    runtimeD1.close();
-    migrationD1.close();
+  const runtimeD1 = await createPostgresD1();
+  const migrationD1 = await createPostgresD1();
+  t.after(async () => {
+    await runtimeD1.close();
+    await migrationD1.close();
   });
 
   const runtimeStore = createAttendanceStore(runtimeD1, {
@@ -265,60 +271,83 @@ test("development DDL stays equivalent to the generated migration", async (t) =>
       "utf8",
     );
     for (const statement of migration.split("--> statement-breakpoint")) {
-      if (statement.trim()) migrationD1.execute(statement);
+      if (!statement.trim()) continue;
+      // drizzle-kit always hardcodes the "public" schema for cross-table
+      // FK references (e.g. REFERENCES "public"."attendance_entries"(...))
+      // regardless of where the migration is actually applied. Running it
+      // as-is against this test's own isolated schema would fail with
+      // "relation public.attendance_entries does not exist" — strip the
+      // hardcoded qualifier so the FK resolves via search_path instead,
+      // same as every other unqualified statement here.
+      await migrationD1.execute(statement.replaceAll('"public".', ""));
     }
   }
 
-  assert.deepEqual(schemaSnapshot(runtimeD1), schemaSnapshot(migrationD1));
+  assert.deepEqual(
+    await schemaSnapshot(runtimeD1),
+    await schemaSnapshot(migrationD1),
+  );
 });
 
-function schemaSnapshot(d1) {
-  return d1
-    .query(
-      `SELECT type, name, tbl_name AS tableName, sql
-       FROM sqlite_schema
-       WHERE type IN ('table', 'index')
-         AND name NOT LIKE 'sqlite_%'
-       ORDER BY type, name`,
-    )
-    .map((row) => ({
-      type: row.type,
+// Postgres has no single "give me this schema's DDL as text" system table
+// the way SQLite's `sqlite_schema` does, so this reconstructs a comparable
+// normalized snapshot from three catalog sources instead: column shapes,
+// constraint definitions (CHECK/PK/FK/UNIQUE), and index definitions. Every
+// captured string has this D1 instance's own randomly-generated schema name
+// stripped out first, since runtimeD1/migrationD1 each live in a different
+// schema and would otherwise never compare equal.
+async function schemaSnapshot(d1) {
+  const strip = (value) =>
+    typeof value === "string"
+      ? value.replaceAll(`"${d1.schemaName}".`, "").replaceAll(d1.schemaName, "")
+      : value;
+  const canonical = (value) => {
+    const stripped = strip(value);
+    return typeof stripped === "string"
+      ? stripped.replace(/\s+/g, " ").trim().toLowerCase()
+      : stripped;
+  };
+
+  const columns = await d1.query(
+    `SELECT table_name, column_name, data_type, is_nullable, column_default
+     FROM information_schema.columns
+     WHERE table_schema = $1
+     ORDER BY table_name, ordinal_position`,
+    d1.schemaName,
+  );
+  const constraints = await d1.query(
+    `SELECT conrelid::regclass::text AS table_name, conname AS name,
+            pg_get_constraintdef(oid) AS definition
+     FROM pg_constraint
+     WHERE connamespace = $1::regnamespace
+     ORDER BY conrelid::regclass::text, conname`,
+    d1.schemaName,
+  );
+  const indexes = await d1.query(
+    `SELECT tablename AS table_name, indexname AS name, indexdef AS definition
+     FROM pg_indexes
+     WHERE schemaname = $1
+     ORDER BY tablename, indexname`,
+    d1.schemaName,
+  );
+
+  return {
+    columns: columns.map((row) => ({
+      tableName: strip(row.table_name),
+      columnName: row.column_name,
+      dataType: row.data_type,
+      isNullable: row.is_nullable,
+      columnDefault: canonical(row.column_default),
+    })),
+    constraints: constraints.map((row) => ({
+      tableName: strip(row.table_name),
       name: row.name,
-      tableName: row.tableName,
-      sql: canonicalSchemaSql(row.sql),
-    }));
-}
-
-function canonicalSchemaSql(sql) {
-  const normalized = sql
-    .replaceAll(/["`]/g, "")
-    .replace(/\bIF\s+NOT\s+EXISTS\b/gi, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s*([(),=<>])\s*/g, "$1")
-    .trim()
-    .toLowerCase();
-  if (!normalized.startsWith("create table")) return normalized;
-
-  const opening = normalized.indexOf("(");
-  const closing = normalized.lastIndexOf(")");
-  const prefix = normalized.slice(0, opening + 1);
-  const suffix = normalized.slice(closing);
-  const definitions = splitTopLevel(normalized.slice(opening + 1, closing));
-  return `${prefix}${definitions.sort().join(",")}${suffix}`;
-}
-
-function splitTopLevel(value) {
-  const parts = [];
-  let depth = 0;
-  let start = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    if (value[index] === "(") depth += 1;
-    if (value[index] === ")") depth -= 1;
-    if (value[index] === "," && depth === 0) {
-      parts.push(value.slice(start, index).trim());
-      start = index + 1;
-    }
-  }
-  parts.push(value.slice(start).trim());
-  return parts;
+      definition: canonical(row.definition),
+    })),
+    indexes: indexes.map((row) => ({
+      tableName: strip(row.table_name),
+      name: row.name,
+      definition: canonical(row.definition),
+    })),
+  };
 }
