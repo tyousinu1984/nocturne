@@ -30,6 +30,7 @@ export function CastAccountPanel({
     displayName: string;
     value: string;
   } | null>(null);
+  const [customCredentials, setCustomCredentials] = useState<Record<string, string>>({});
 
   const accountBySlug = useMemo(
     () => new Map(data.accounts.map((account) => [account.artistSlug, account])),
@@ -65,13 +66,17 @@ export function CastAccountPanel({
     action: "create" | "rotate_credential" | "enable" | "disable",
   ) {
     const account = accountBySlug.get(artist.slug);
+    const credential =
+      action === "create" || action === "rotate_credential"
+        ? customCredentials[artist.slug]?.trim() || undefined
+        : undefined;
     setBusySlug(artist.slug);
     setError("");
     try {
       const response = await fetch("/api/admin/cast-accounts", {
         method: "POST",
         headers: { accept: "application/json", "content-type": "application/json" },
-        body: JSON.stringify({ action, artistSlug: artist.slug, accountId: account?.id }),
+        body: JSON.stringify({ action, artistSlug: artist.slug, accountId: account?.id, credential }),
       });
       const body = (await response.json()) as {
         account?: CastAccountRecord;
@@ -90,6 +95,9 @@ export function CastAccountPanel({
       }));
       if (body.temporaryAccessCode) {
         setTemporaryCode({ displayName: artist.name, value: body.temporaryAccessCode });
+      }
+      if (credential) {
+        setCustomCredentials((current) => ({ ...current, [artist.slug]: "" }));
       }
       const label = access.actionLabels[action];
       onNotice(label, accountUpdatedNotice(locale, artist.name));
@@ -148,6 +156,22 @@ export function CastAccountPanel({
                     <div><dt>{access.accountIdLabel}</dt><dd>{account.id.slice(0, 18)}…</dd></div>
                   </dl>
                 ) : <p>{access.noSignInIdentity}</p>}
+                <label className="ops-account-credential">
+                  <span>{access.customCredentialLabel}</span>
+                  <input
+                    type="text"
+                    value={customCredentials[artist.slug] ?? ""}
+                    placeholder={access.customCredentialPlaceholder}
+                    disabled={busy}
+                    onChange={(event) =>
+                      setCustomCredentials((current) => ({
+                        ...current,
+                        [artist.slug]: event.target.value,
+                      }))
+                    }
+                  />
+                  <small>{access.customCredentialHint}</small>
+                </label>
                 <div className="ops-account-actions">
                   {!account && <button type="button" disabled={busy} onClick={() => runAction(artist, "create")}>{busy ? access.creating : access.createAccount}</button>}
                   {account && <button type="button" className="is-secondary" disabled={busy} onClick={() => runAction(artist, "rotate_credential")}>{busy ? access.resetting : access.resetAccessCode}</button>}

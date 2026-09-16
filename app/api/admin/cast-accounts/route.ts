@@ -62,6 +62,14 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Admin can optionally supply a memorable password of their own choosing
+    // instead of the auto-generated code — hashStaffCredential() enforces
+    // the same 12-128 character bound either way. When admin supplies one,
+    // the response omits temporaryAccessCode since there's nothing new to
+    // show them (they already know what they typed).
+    const customCredential =
+      typeof payload.credential === "string" ? payload.credential.trim() : "";
+
     const action = payload.action;
     if (action === "create") {
       const artistSlug =
@@ -70,14 +78,17 @@ export async function POST(request: Request) {
       if (!artist) {
         throw new CastAccountError("invalid_account", "Choose a valid cast profile.");
       }
-      const temporaryAccessCode = generateTemporaryAccessCode();
+      const temporaryAccessCode = customCredential || generateTemporaryAccessCode();
       const account = await createCastAccount({
         artistSlug,
         displayName: artist.name,
         credentialHash: hashStaffCredential(temporaryAccessCode),
         actorUserId: access.user.userId,
       });
-      return Response.json({ account, temporaryAccessCode }, { status: 201 });
+      return Response.json(
+        { account, ...(customCredential ? {} : { temporaryAccessCode }) },
+        { status: 201 },
+      );
     }
 
     const accountId =
@@ -86,13 +97,13 @@ export async function POST(request: Request) {
       throw new CastAccountError("not_found", "Cast account ID is required.");
     }
     if (action === "rotate_credential") {
-      const temporaryAccessCode = generateTemporaryAccessCode();
+      const temporaryAccessCode = customCredential || generateTemporaryAccessCode();
       const account = await rotateCastCredential({
         accountId,
         actorUserId: access.user.userId,
         credentialHash: hashStaffCredential(temporaryAccessCode),
       });
-      return Response.json({ account, temporaryAccessCode });
+      return Response.json({ account, ...(customCredential ? {} : { temporaryAccessCode }) });
     }
     if (action === "enable" || action === "disable") {
       const account = await setCastAccountStatus({
