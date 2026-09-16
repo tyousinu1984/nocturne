@@ -12,6 +12,27 @@ import {
   attendanceStatuses,
 } from "../app/admin/attendance-domain";
 
+export const bookingInquiryStatuses = [
+  "new",
+  "contacted",
+  "confirmed",
+  "cancelled",
+] as const;
+
+export const modelApplicationStatuses = [
+  "new",
+  "contacted",
+  "hired",
+  "rejected",
+] as const;
+
+// Mirrors Artist.tier / Artist.district / Artist.status in app/data.ts.
+// Those are TS-only union literals with no runtime array today — these are
+// the runtime equivalents the DB check constraints below need.
+export const modelProfileTiers = ["Muse", "Signature", "New"] as const;
+export const modelProfileDistricts = ["Aoyama", "Ginza", "Daikanyama"] as const;
+export const modelProfileStatuses = ["Tonight", "This week", "Private"] as const;
+
 export const castAccountStatuses = ["active", "disabled"] as const;
 export const castAccountActions = [
   "create",
@@ -124,6 +145,78 @@ export const attendanceEvents = pgTable(
   ],
 );
 
+// Public "book models for our event" inquiries submitted from
+// /contact.html (see app/api/public/inquiries/route.ts). Deliberately a
+// simple submit-and-follow-up record, not a real-time booking/calendar-lock
+// system — status is only ever changed by staff from the admin queue.
+export const bookingInquiries = pgTable(
+  "booking_inquiries",
+  {
+    id: text("id").primaryKey(),
+    companyName: text("company_name").notNull(),
+    contactName: text("contact_name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone").notNull().default(""),
+    eventName: text("event_name").notNull(),
+    eventDate: text("event_date").notNull(),
+    eventLocation: text("event_location").notNull(),
+    headcount: integer("headcount").notNull().default(1),
+    message: text("message").notNull().default(""),
+    status: text("status", { enum: bookingInquiryStatuses })
+      .notNull()
+      .default("new"),
+    staffNote: text("staff_note").notNull().default(""),
+    createdAt: text("created_at").notNull().default(nowDefault),
+    updatedAt: text("updated_at").notNull().default(nowDefault),
+  },
+  (table) => [
+    check(
+      "booking_inquiries_status_valid",
+      sql`${table.status} IN ('new', 'contacted', 'confirmed', 'cancelled')`,
+    ),
+    check(
+      "booking_inquiries_headcount_positive",
+      sql`${table.headcount} >= 1`,
+    ),
+    index("idx_booking_inquiries_status_created").on(
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
+// Public "apply to become a model" submissions from /recruit.html (see
+// app/api/public/applications/route.ts). Same shape as bookingInquiries —
+// a simple submit-and-follow-up record, no automated screening.
+export const modelApplications = pgTable(
+  "model_applications",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone").notNull().default(""),
+    portfolioUrl: text("portfolio_url").notNull().default(""),
+    experience: text("experience").notNull().default(""),
+    message: text("message").notNull().default(""),
+    status: text("status", { enum: modelApplicationStatuses })
+      .notNull()
+      .default("new"),
+    staffNote: text("staff_note").notNull().default(""),
+    createdAt: text("created_at").notNull().default(nowDefault),
+    updatedAt: text("updated_at").notNull().default(nowDefault),
+  },
+  (table) => [
+    check(
+      "model_applications_status_valid",
+      sql`${table.status} IN ('new', 'contacted', 'hired', 'rejected')`,
+    ),
+    index("idx_model_applications_status_created").on(
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const castAccounts = pgTable(
   "cast_accounts",
   {
@@ -177,3 +270,60 @@ export const castAccountEvents = pgTable(
     ),
   ],
 );
+
+// Admin-editable overlay on top of app/data.ts's static `artists` array —
+// see app/model-data.ts for how the two get merged. Seeded once from the
+// current app/data.ts + i18n/dictionaries/*/artists.ts content so nothing
+// regresses visually when this ships (see scripts/seed-model-profiles.mjs).
+// stats/schedule/languages/disciplines/monogram/palette stay static for
+// now — not made editable in this pass.
+export const modelProfiles = pgTable(
+  "model_profiles",
+  {
+    slug: text("slug").primaryKey(),
+    name: text("name").notNull(),
+    tier: text("tier", { enum: modelProfileTiers }).notNull(),
+    district: text("district", { enum: modelProfileDistricts }).notNull(),
+    status: text("status", { enum: modelProfileStatuses }).notNull(),
+    roleEn: text("role_en").notNull(),
+    roleJa: text("role_ja").notNull(),
+    roleZh: text("role_zh").notNull(),
+    shortNoteEn: text("short_note_en").notNull(),
+    shortNoteJa: text("short_note_ja").notNull(),
+    shortNoteZh: text("short_note_zh").notNull(),
+    biographyEn: text("biography_en").notNull(),
+    biographyJa: text("biography_ja").notNull(),
+    biographyZh: text("biography_zh").notNull(),
+    updatedAt: text("updated_at").notNull().default(nowDefault),
+  },
+  (table) => [
+    check(
+      "model_profiles_tier_valid",
+      sql`${table.tier} IN ('Muse', 'Signature', 'New')`,
+    ),
+    check(
+      "model_profiles_district_valid",
+      sql`${table.district} IN ('Aoyama', 'Ginza', 'Daikanyama')`,
+    ),
+    check(
+      "model_profiles_status_valid",
+      sql`${table.status} IN ('Tonight', 'This week', 'Private')`,
+    ),
+  ],
+);
+
+// Promotions/event announcements shown on the homepage (HomeNews — see
+// app/nocturne.tsx). No status machine: admin create/edit/delete take
+// effect immediately, same as booking_inquiries/model_applications.
+export const announcements = pgTable("announcements", {
+  id: text("id").primaryKey(),
+  date: text("date").notNull(),
+  titleEn: text("title_en").notNull(),
+  titleJa: text("title_ja").notNull(),
+  titleZh: text("title_zh").notNull(),
+  bodyEn: text("body_en").notNull(),
+  bodyJa: text("body_ja").notNull(),
+  bodyZh: text("body_zh").notNull(),
+  createdAt: text("created_at").notNull().default(nowDefault),
+  updatedAt: text("updated_at").notNull().default(nowDefault),
+});

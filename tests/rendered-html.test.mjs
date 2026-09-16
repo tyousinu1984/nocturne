@@ -47,6 +47,7 @@ before(async () => {
   });
 
   await waitForHealth();
+  await seedAnnouncements();
 });
 
 after(() => {
@@ -101,12 +102,12 @@ test("server-renders the Nocturne catalogue in Japanese by default", async () =>
   assert.match(html, /<html lang="ja">/);
   assert.match(html, /<title>キャストディレクトリ \| NOCTURNE TOKYO<\/title>/);
   assert.match(html, /今夜の/);
-  assert.match(html, /NOCTURNE のラインナップをチェック/);
-  assert.match(html, /12名のキャストプロフィールが公開されました/);
-  assert.match(html, /\/photos-preview\/aika-01\.jpg/);
-  assert.match(html, /\/photos-preview\/yuna-01\.jpg/);
-  assert.match(html, /予約・決済・連絡サービスの提供はありません/);
-  assert.match(html, /aria-modal="true"/);
+  // Directory/Reviews/Blog moved to their own pages (/cast/list.html,
+  // /reviews.html, /blog.html) — the homepage itself is now Hero + news +
+  // today's availability, see app/nocturne.tsx's HomeExperience.
+  assert.match(html, /秋の展示会シーズンの予約受付を開始しました/);
+  assert.match(html, /本日出勤可能なモデル/);
+  assert.match(html, /\/photos-preview\/ren-01\.jpg/);
   assert.match(html, /id="mobile-menu"[^>]*aria-hidden="true"[^>]*inert/i);
   assert.doesNotMatch(html, /hentaitokyo/i);
 });
@@ -117,18 +118,20 @@ test("server-renders the Nocturne catalogue in English and Chinese", async () =>
   const englishHtml = await english.text();
   assert.match(englishHtml, /<html lang="en">/);
   assert.match(englishHtml, /<title>Cast Directory \| NOCTURNE TOKYO<\/title>/);
-  assert.match(englishHtml, /MEET THE NOCTURNE LINEUP/);
+  assert.match(englishHtml, /AUTUMN EXHIBITION SEASON BOOKING NOW OPEN/);
 
   const chinese = await render("/zh");
   assert.equal(chinese.status, 200);
   const chineseHtml = await chinese.text();
   assert.match(chineseHtml, /<html lang="zh">/);
   assert.match(chineseHtml, /<title>卡司名录 \| NOCTURNE TOKYO<\/title>/);
-  assert.match(chineseHtml, /浏览 NOCTURNE 全部阵容/);
+  assert.match(chineseHtml, /秋季展会档期预约现已开放/);
 });
 
-test("server-renders a fictional profile route", async () => {
-  const response = await render("/ja/profile/aika");
+test("server-renders a cast profile route", async () => {
+  // aika is Artist.id 1 in app/data.ts — the public URL scheme keys off
+  // this stable numeric id, not the slug (see the note on Artist.id).
+  const response = await render("/ja/cast/profile/1.html");
   assert.equal(response.status, 200);
   const html = await response.text();
 
@@ -142,7 +145,7 @@ test("server-renders a fictional profile route", async () => {
 test("admin fails closed without the trusted reverse-proxy header", async () => {
   const response = await render("/ja/admin");
   assert.equal(response.status, 404);
-  assert.doesNotMatch(await response.text(), /AUTHORIZED OPERATIONS ALPHA/i);
+  assert.doesNotMatch(await response.text(), /運営オペレーション（アルファ版）/);
 });
 
 test("admin renders only after the reverse proxy authenticates the operator", async () => {
@@ -151,10 +154,12 @@ test("admin renders only after the reverse proxy authenticates the operator", as
   });
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /AUTHORIZED OPERATIONS ALPHA/i);
+  assert.match(html, /運営オペレーション（アルファ版）/);
+  // access.ts's adminIdentityLabel() isn't translated (deferred, see the
+  // i18n plan) — still English regardless of locale.
   assert.match(html, /STORE ACCESS/i);
-  assert.match(html, /STAFF ACCESS/i);
-  assert.match(html, /durable PostgreSQL storage/i);
+  assert.match(html, /スタッフアクセス/);
+  assert.match(html, /永続的な PostgreSQL ストレージ/);
   assert.doesNotMatch(html, /store-owner/i);
 });
 
@@ -162,12 +167,10 @@ test("staff portal renders in an ordinary browser without an OpenAI account", as
   const response = await render("/ja/staff");
   assert.equal(response.status, 200);
   const html = await response.text();
-  // Matches the localized <title> (staff-portal.tsx itself isn't
-  // translated yet — see the i18n plan's deferred scope — so its actual
-  // loading-state markup still reads "MY ATTENDANCE"/"CHECKING STAFF
-  // SESSION…" in English regardless of locale).
+  // staff-portal.tsx is now translated too (admin/staff i18n round) —
+  // the loading-state markup reads in Japanese for /ja.
   assert.match(html, /キャストポータル/);
-  assert.match(html, /MY ATTENDANCE/i);
+  assert.match(html, /自分の出勤情報/);
   assert.doesNotMatch(html, /openai|chatgpt|codex/i);
 });
 
@@ -180,7 +183,7 @@ test("health confirms the Postgres migration set", async () => {
     status: "ok",
     app: "nocturne-tokyo",
     storage: "postgres",
-    migrations: 1,
+    migrations: 4,
   });
 });
 
@@ -310,6 +313,35 @@ async function reservePort() {
       server.close((error) => (error ? reject(error) : resolve(port)));
     });
   });
+}
+
+// The homepage's "latest news" section (app/nocturne.tsx's HomeNews) reads
+// from the announcements table now instead of static dictionary content —
+// seed one via the real admin API (same command path an operator would
+// use from /admin) so the rendering tests below have something to find.
+// Content mirrors scripts/seed-announcements.mjs's first item.
+async function seedAnnouncements() {
+  const response = await render("/api/admin/announcements", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "x-nocturne-admin-authenticated": "1",
+      origin: baseUrl,
+    },
+    body: JSON.stringify({
+      date: "2026-08-06",
+      titleEn: "AUTUMN EXHIBITION SEASON BOOKING NOW OPEN",
+      titleJa: "秋の展示会シーズンの予約受付を開始しました",
+      titleZh: "秋季展会档期预约现已开放",
+      bodyEn: "Reserve models early for October and November trade-show dates.",
+      bodyJa: "10月・11月の商談会・展示会向けに、お早めのご予約をおすすめします。",
+      bodyZh: "建议提前预约10月、11月的商展档期。",
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to seed a test announcement: ${response.status}`);
+  }
 }
 
 async function waitForHealth() {

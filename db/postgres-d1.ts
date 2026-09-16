@@ -6,6 +6,9 @@
 import pg from "pg";
 import type { Pool as PoolType, PoolClient } from "pg";
 import initialMigration from "../drizzle/0000_round_lily_hollister.sql?raw";
+import bookingInquiriesMigration from "../drizzle/0001_left_madelyne_pryor.sql?raw";
+import modelApplicationsMigration from "../drizzle/0002_graceful_beyonder.sql?raw";
+import modelProfilesMigration from "../drizzle/0003_sparkling_morph.sql?raw";
 
 const { Pool } = pg;
 
@@ -105,7 +108,12 @@ class PostgresD1 {
   }
 }
 
-const migrations = [["0000_round_lily_hollister", initialMigration]] as const;
+const migrations = [
+  ["0000_round_lily_hollister", initialMigration],
+  ["0001_left_madelyne_pryor", bookingInquiriesMigration],
+  ["0002_graceful_beyonder", modelApplicationsMigration],
+  ["0003_sparkling_morph", modelProfilesMigration],
+] as const;
 
 let pool: PoolType | undefined;
 let connectionString: string | undefined;

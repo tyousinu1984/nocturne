@@ -7,6 +7,10 @@ import {
 } from "../app/admin/attendance-store.ts";
 import { AttendanceDomainError } from "../app/admin/attendance-domain.ts";
 import { createCastAccountStore } from "../app/admin/cast-account-store.ts";
+import { createInquiryStore } from "../app/admin/inquiry-store.ts";
+import { createApplicationStore } from "../app/admin/application-store.ts";
+import { createModelProfileStore } from "../app/admin/model-profile-store.ts";
+import { createAnnouncementStore } from "../app/admin/announcement-store.ts";
 import { createPostgresD1 } from "./helpers/postgres-d1.mjs";
 
 const castActor = { userId: "cast-user", role: "cast", artistSlug: "yuna" };
@@ -259,8 +263,24 @@ test("development DDL stays equivalent to the generated migration", async (t) =>
   const runtimeAccountStore = createCastAccountStore(runtimeD1, {
     initializeSchema: true,
   });
+  const runtimeInquiryStore = createInquiryStore(runtimeD1, {
+    initializeSchema: true,
+  });
+  const runtimeApplicationStore = createApplicationStore(runtimeD1, {
+    initializeSchema: true,
+  });
+  const runtimeModelProfileStore = createModelProfileStore(runtimeD1, {
+    initializeSchema: true,
+  });
+  const runtimeAnnouncementStore = createAnnouncementStore(runtimeD1, {
+    initializeSchema: true,
+  });
   await runtimeStore.ensureSchema();
   await runtimeAccountStore.ensureSchema();
+  await runtimeInquiryStore.ensureSchema();
+  await runtimeApplicationStore.ensureSchema();
+  await runtimeModelProfileStore.ensureSchema();
+  await runtimeAnnouncementStore.ensureSchema();
 
   const journal = JSON.parse(
     readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"),

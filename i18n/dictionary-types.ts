@@ -7,37 +7,20 @@ export type Dictionary = {
     home: string;
     cast: string;
     schedule: string;
-    ranking: string;
     system: string;
-    access: string;
-    reviews: string;
     blog: string;
     faq: string;
     contact: string;
+    recruit: string;
   };
-  quickLinks: { number: string; title: string; sub: string; slug: string; href: string }[];
   header: {
     openToday: string;
     openMenu: string;
     closeMenu: string;
-    quickGuideAria: string;
     primaryNavAria: string;
     mobileNavAria: string;
   };
   brand: { sub: string };
-  ageGate: {
-    overline: string;
-    logoSub: string;
-    declinedTitle: string;
-    declinedBody: string;
-    return: string;
-    welcomeTitle: string;
-    welcomeBody: string;
-    enter: string;
-    exit: string;
-    note: string;
-    ariaLabel: string;
-  };
   hero: {
     kicker: string;
     headlineLine1: string;
@@ -49,13 +32,21 @@ export type Dictionary = {
     badgeNew: string;
     badgeLineup: string;
   };
-  ticker: { nowOnline: string };
-  notice: { updatedToday: string; title: string; body: string; cta: string; month: string };
+  homeNews: {
+    eyebrow: string;
+    title: string;
+    note: string;
+  };
+  todayAvailability: {
+    eyebrow: string;
+    title: string;
+    note: string;
+    none: string;
+    viewFullSchedule: string;
+  };
   sections: {
     directory: { eyebrow: string; title: string; note: string };
-    ranking: { eyebrow: string; title: string; note: string };
     systemGuide: { eyebrow: string; title: string; note: string };
-    reviews: { eyebrow: string; title: string; note: string };
     journal: { eyebrow: string; title: string; note: string };
     related: { eyebrow: string; title: string };
     profileSchedule: { eyebrow: string; note: string };
@@ -79,18 +70,61 @@ export type Dictionary = {
   };
   card: { openProfile: string; readProfile: string; portraitAlt: string };
   systemGuideSteps: { number: string; title: string; copy: string }[];
-  reviewsData: { title: string; body: string; date: string }[];
   journalStories: { category: string; date: string; title: string }[];
+  faqPage: {
+    eyebrow: string;
+    title: string;
+    note: string;
+    items: { question: string; answer: string }[];
+  };
+  contactPage: {
+    eyebrow: string;
+    title: string;
+    note: string;
+    companyLabel: string;
+    contactNameLabel: string;
+    emailLabel: string;
+    phoneLabel: string;
+    eventNameLabel: string;
+    eventDateLabel: string;
+    eventLocationLabel: string;
+    headcountLabel: string;
+    messageLabel: string;
+    messagePlaceholder: string;
+    submit: string;
+    submitting: string;
+    successTitle: string;
+    successBody: string;
+    errorGeneric: string;
+    errorInvalid: string;
+  };
+  recruitPage: {
+    eyebrow: string;
+    title: string;
+    note: string;
+    requirementsTitle: string;
+    requirements: string[];
+    formTitle: string;
+    nameLabel: string;
+    emailLabel: string;
+    phoneLabel: string;
+    portfolioLabel: string;
+    experienceLabel: string;
+    messageLabel: string;
+    messagePlaceholder: string;
+    submit: string;
+    submitting: string;
+    successTitle: string;
+    successBody: string;
+    errorGeneric: string;
+    errorInvalid: string;
+  };
   footer: {
-    districts: { name: string; note: string }[];
     groupDirectory: string;
     groupGuide: string;
     groupInformation: string;
     linkAllCast: string;
-    linkSchedule: string;
-    linkRanking: string;
     linkFirstGuide: string;
-    linkReviews: string;
     linkBlog: string;
     infoLines: string[];
     copyright: string;
@@ -112,8 +146,6 @@ export type Dictionary = {
     blogPost1Title: string;
     blogPost2Title: string;
     blogBody: string;
-    reviewsEyebrow: string;
-    reviewsTitle: string;
   };
   scheduleState: {
     checkingTitle: string;
@@ -129,7 +161,7 @@ export type Dictionary = {
   tierLabels: Record<"Muse" | "Signature" | "New", string>;
   statsLabels: Record<"Practice" | "Format" | "Mood" | "Tempo", string>;
   scheduleDayStates: Record<"Studio" | "Salon" | "Archive" | "Off", string>;
-  weekdayAbbrev: Record<"THU" | "FRI" | "SAT" | "SUN" | "MON", string>;
+  weekdayAbbrev: Record<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN", string>;
   languageNames: Record<"Japanese" | "English" | "Korean" | "French" | "Mandarin" | "Spanish", string>;
   // Discipline tags: ~34 distinct values across 12 artists, shared
   // vocabulary rather than per-artist copy. A loose Record (not an exact
@@ -143,149 +175,36 @@ export type Dictionary = {
   meta: {
     homeTitle: string;
     homeDescription: string;
+    castListTitle: string;
+    castListDescription: string;
+    scheduleTitle: string;
+    scheduleDescription: string;
+    recruitTitle: string;
+    recruitDescription: string;
     profileNotFound: string;
     adminTitle: string;
     adminDescription: string;
     staffTitle: string;
     staffDescription: string;
   };
+  schedulePage: {
+    eyebrow: string;
+    title: string;
+    note: string;
+    noneScheduled: string;
+  };
   admin: {
     brandSub: string;
     environmentBanner: string;
+    consoleWelcomeNotice: string;
     nav: Array<{ id: string; number: string; label: string; hint: string }>;
     sidebarNoteTitle: string;
     sidebarNoteBody: string;
     topbarEyebrow: string;
     authenticatedOperatorLabel: string;
     siteAccessCodeSuffix: string;
-    simulatedRoleLabel: string;
-    roleOptionEditor: string;
-    roleOptionReviewer: string;
-    revisionStatus: { draft: string; pending: string; approved: string };
-    publicationStatus: {
-      "baseline-live": string;
-      "revision-live": string;
-      "rolled-back": string;
-      "taken-down": string;
-    };
-    auditSeed: [{ action: string; detail: string }, { action: string; detail: string }];
-    notices: {
-      onlyEditorCanSave: string;
-      draftSaved: string;
-      onlyEditorCanSubmit: string;
-      submissionBlocked: string;
-      submitterCannotApprove: string;
-      reviewerAndPendingRequired: string;
-      snapshotUnavailable: string;
-      takedownClosedSession: string;
-      approveBeforePublication: string;
-      rollbackRequiresPublication: string;
-      takedownRequiresReviewer: string;
-    };
-    audit: {
-      draftSavedAction: string;
-      submittedAction: string;
-      approvalBlockedAction: string;
-      approvedAction: string;
-      repostBlockedAction: string;
-      publishedAction: string;
-      rollbackAction: string;
-      takedownAction: string;
-    };
-    content: {
-      profileRevisionEyebrow: string;
-      revisionBadge: string;
-      publicNameLabel: string;
-      publicRoleLabel: string;
-      publicBiographyLabel: string;
-      mediaSetEyebrow: string;
-      suppliedPhotosLabel: string;
-      selectCoverHint: string;
-      photoLabelPrefix: string;
-      currentCover: string;
-      setAsCover: string;
-      saveDraft: string;
-      submitForReview: string;
-    };
-    release: {
-      reviewReleaseEyebrow: string;
-      controlledPublicationTitle: string;
-      lockedSnapshotLabel: string;
-      revisionBadgePrefix: string;
-      currentPublicLabel: string;
-      hiddenLabel: string;
-      profileHiddenNote: string;
-      previousPointerLabel: string;
-      noneLabel: string;
-      availableAsPointerNote: string;
-      noPriorPublicationNote: string;
-      submittedByLabel: string;
-      approvalRequiresDifferentIdentity: string;
-      stepDraftCreated: string;
-      stepGovernancePassed: string;
-      stepIndependentApproval: string;
-      stepProbePublication: string;
-      approveRevision: string;
-      publishProbe: string;
-      rollback: string;
-      emergencyTakedown: string;
-    };
-    governance: {
-      publicationGateEyebrow: string;
-      rightsSafetyTitle: string;
-      blockingItemsSuffix: string;
-      checks: { adultVerified: string; websiteUsage: string; exifClean: string };
-      requiredBeforeSubmission: string;
-      rightsEvidenceLabel: string;
-      rightsEvidencePlaceholder: string;
-      rightsEvidenceNote: string;
-      publicationBlocked: string;
-      readyForReview: string;
-      readyForReviewNote: string;
-      issues: {
-        adultIncomplete: string;
-        websiteUsageMissing: string;
-        exifNotClean: string;
-        rightsReferenceMissing: string;
-      };
-    };
-    queue: {
-      summaryActiveRevision: string;
-      summaryActiveRevisionDetail: string;
-      summaryRightsGaps: string;
-      summaryRightsGapsPending: string;
-      summaryRightsGapsClear: string;
-      summaryCurrentPublic: string;
-      summaryCurrentPublicDetail: string;
-      summaryPublishFailures: string;
-      summaryPublishFailuresDetail: string;
-      tableHeadPriority: string;
-      tableHeadObject: string;
-      tableHeadReason: string;
-      tableHeadStatus: string;
-      tableHeadAction: string;
-      priorityReason: string;
-      openRevision: string;
-      sliceEyebrow: string;
-      sliceTitle: string;
-      sliceBody: string;
-    };
-    preview: {
-      defaultLabel: string;
-      defaultBadge: string;
-      tonightGinza: string;
-      untitledProfile: string;
-      rolePending: string;
-      biographyPending: string;
-      contactPreviewOnly: string;
-      simulatedNote: string;
-    };
-    auditPanel: {
-      sessionOnlyRecord: string;
-      simulatedTimeline: string;
-      resetsOnRefresh: string;
-    };
     access: {
+      welcomeNotice: string;
       eyebrow: string;
       title: string;
       activeAccountsSuffix: string;
@@ -298,6 +217,9 @@ export type Dictionary = {
       oneTimeCodeLabel: string;
       oneTimeCodeNote: string;
       savedIt: string;
+      customCredentialLabel: string;
+      customCredentialPlaceholder: string;
+      customCredentialHint: string;
       attentionRequired: string;
       retryLoad: string;
       loadingIdentities: string;
@@ -320,6 +242,55 @@ export type Dictionary = {
       accountsLoadFailed: string;
       accountCommandFailed: string;
       actionLabels: { create: string; rotate_credential: string; enable: string; disable: string };
+    };
+    models: {
+      eyebrow: string;
+      title: string;
+      itemsSuffix: string;
+      errorTitle: string;
+      retryLoad: string;
+      loadingModels: string;
+      selectPrompt: string;
+      nameLabel: string;
+      tierLabel: string;
+      districtLabel: string;
+      statusLabel: string;
+      roleLabel: string;
+      shortNoteLabel: string;
+      biographyLabel: string;
+      save: string;
+      saving: string;
+      savedLabel: string;
+      loadFailedLabel: string;
+      saveFailedLabel: string;
+      loadFailedFallback: string;
+      saveFailedFallback: string;
+    };
+    announcements: {
+      eyebrow: string;
+      title: string;
+      itemsSuffix: string;
+      errorTitle: string;
+      retryLoad: string;
+      loadingAnnouncements: string;
+      newAnnouncement: string;
+      dateLabel: string;
+      titleLabel: string;
+      bodyLabel: string;
+      save: string;
+      saving: string;
+      cancel: string;
+      edit: string;
+      delete: string;
+      savedLabel: string;
+      deletedLabel: string;
+      deletedNotice: string;
+      loadFailedLabel: string;
+      saveFailedLabel: string;
+      deleteFailedLabel: string;
+      loadFailedFallback: string;
+      saveFailedFallback: string;
+      deleteFailedFallback: string;
     };
     attendance: {
       myAttendance: string;
@@ -356,6 +327,8 @@ export type Dictionary = {
       approving: string;
       publishToProfile: string;
       publishing: string;
+      quickPublish: string;
+      quickPublishing: string;
       saveLiveChanges: string;
       cancelPublicShift: string;
       cancelling: string;
@@ -368,6 +341,9 @@ export type Dictionary = {
       refresh: string;
       loadingAttendance: string;
       noRecordsYet: string;
+      noRecordsForArtist: string;
+      rosterAllLabel: string;
+      rosterFilterLabel: string;
       appendOnlyEvents: string;
       selectRecordToViewHistory: string;
       checkingProjection: string;
@@ -406,6 +382,28 @@ export type Dictionary = {
         publish: string;
         cancel: string;
       };
+      createModeSingle: string;
+      createModeWeek: string;
+      weekStartLabel: string;
+      applyTimeToChecked: string;
+      autoPublishAfterCreate: string;
+      createWeek: string;
+      creatingWeek: string;
+      weekResultsHeading: string;
+      weekDayPublished: string;
+      weekDayCreatedOnly: string;
+      weekDayFailed: string;
+    };
+    dashboard: {
+      eyebrow: string;
+      title: string;
+      pendingInquiriesLabel: string;
+      pendingApplicationsLabel: string;
+      weekHeading: string;
+      emptyDay: string;
+      loadingDashboard: string;
+      loadFailed: string;
+      retryLoad: string;
     };
   };
   staffPortal: {

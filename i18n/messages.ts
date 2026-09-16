@@ -50,6 +50,24 @@ export function profilePortraitAlt(locale: Locale, name: string, index: number) 
   }
 }
 
+// "YYYY-MM-DD" + an already-localized weekday abbreviation (from
+// dictionary.weekdayAbbrev) -> "9月15日(月)" / "9/15 (MON)" / "9月15日（周二）".
+// Parsed as plain string slices, not `new Date()`, so this can't be thrown
+// off by timezone conversion.
+export function scheduleDateLabel(locale: Locale, isoDate: string, weekdayLabel: string) {
+  const [, monthRaw, dayRaw] = isoDate.split("-");
+  const month = Number.parseInt(monthRaw, 10);
+  const day = Number.parseInt(dayRaw, 10);
+  switch (locale) {
+    case "ja":
+      return `${month}月${day}日(${weekdayLabel})`;
+    case "zh":
+      return `${month}月${day}日（${weekdayLabel}）`;
+    default:
+      return `${month}/${day} (${weekdayLabel})`;
+  }
+}
+
 export function cardPortraitAlt(locale: Locale, name: string) {
   switch (locale) {
     case "ja":
@@ -61,150 +79,7 @@ export function cardPortraitAlt(locale: Locale, name: string) {
   }
 }
 
-// --- Admin console dynamic notices/audit-log strings ---
-
-export function draftUpdatedDetail(locale: Locale, displayName: string) {
-  switch (locale) {
-    case "ja":
-      return `${displayName}の仮プロフィールテキストを更新しました。`;
-    case "zh":
-      return `已更新 ${displayName} 的临时资料文案。`;
-    default:
-      return `Updated temporary profile copy for ${displayName}.`;
-  }
-}
-
-export function submittedNotice(locale: Locale, revisionId: string, actorId: string) {
-  switch (locale) {
-    case "ja":
-      return `リビジョン ${revisionId} をロックし、${actorId} が提出しました。続行するには reviewer-01 に切り替えてください。`;
-    case "zh":
-      return `修订版本 ${revisionId} 已锁定并由 ${actorId} 提交。请切换到 reviewer-01 继续。`;
-    default:
-      return `Revision ${revisionId} locked and submitted by ${actorId}. Switch to reviewer-01 to continue.`;
-  }
-}
-
-export function submittedAuditDetail(locale: Locale, revisionId: string) {
-  switch (locale) {
-    case "ja":
-      return `リビジョン ${revisionId} と3点のメディア素材を reviewer-01 のためにロックしました。`;
-    case "zh":
-      return `修订版本 ${revisionId} 及三份媒体素材已为 reviewer-01 锁定。`;
-    default:
-      return `Revision ${revisionId} and three media assets locked for reviewer-01.`;
-  }
-}
-
-export function approvalBlockedDetail(locale: Locale, actorId: string) {
-  switch (locale) {
-    case "ja":
-      return `${actorId} は提出済みの担当者と一致しています。`;
-    case "zh":
-      return `${actorId} 与记录中的提交者一致。`;
-    default:
-      return `${actorId} matches the recorded submitting identity.`;
-  }
-}
-
-export function approvedNotice(locale: Locale, revisionId: string, actorId: string) {
-  switch (locale) {
-    case "ja":
-      return `リビジョン ${revisionId} が ${actorId} により承認されました。公開はまだシミュレーションです。`;
-    case "zh":
-      return `修订版本 ${revisionId} 已由 ${actorId} 批准。发布仍为模拟状态。`;
-    default:
-      return `Revision ${revisionId} approved by ${actorId}. Publication remains simulated.`;
-  }
-}
-
-export function approvedAuditDetail(locale: Locale, revisionId: string) {
-  switch (locale) {
-    case "ja":
-      return `ガバナンス確認後、リビジョン ${revisionId} が独立して承認されました。`;
-    case "zh":
-      return `经治理审查后，修订版本 ${revisionId} 已被独立批准。`;
-    default:
-      return `Revision ${revisionId} approved independently after governance review.`;
-  }
-}
-
-export function publishedNotice(locale: Locale, priorRevisionId: string, revisionId: string) {
-  switch (locale) {
-    case "ja":
-      return `プローブの公開ポインタがリビジョン ${priorRevisionId} から ${revisionId} に移動しました。本番サイトは変更されていません。`;
-    case "zh":
-      return `试验发布指针已从修订版本 ${priorRevisionId} 移动到 ${revisionId}。生产站点未发生变化。`;
-    default:
-      return `Probe public pointer moved from revision ${priorRevisionId} to ${revisionId}. The production site was not changed.`;
-  }
-}
-
-export function publishedAuditDetail(locale: Locale, priorRevisionId: string, revisionId: string) {
-  switch (locale) {
-    case "ja":
-      return `公開ポインタがリビジョン ${priorRevisionId} から ${revisionId} に移動しました。`;
-    case "zh":
-      return `公开指针已从修订版本 ${priorRevisionId} 移动到 ${revisionId}。`;
-    default:
-      return `Public pointer moved from revision ${priorRevisionId} to ${revisionId}.`;
-  }
-}
-
-export function rollbackNotice(locale: Locale, restoredRevisionId: string, removedRevisionId: string) {
-  switch (locale) {
-    case "ja":
-      return `プローブの公開ポインタをリビジョン ${restoredRevisionId} に復元しました。リビジョン ${removedRevisionId} は承認済みのままです。`;
-    case "zh":
-      return `试验发布指针已恢复到修订版本 ${restoredRevisionId}。修订版本 ${removedRevisionId} 仍保持已批准状态。`;
-    default:
-      return `Probe public pointer restored to revision ${restoredRevisionId}. Revision ${removedRevisionId} remains approved.`;
-  }
-}
-
-export function rollbackAuditDetail(locale: Locale, restoredRevisionId: string, removedRevisionId: string) {
-  switch (locale) {
-    case "ja":
-      return `リビジョン ${restoredRevisionId} を復元しました。リビジョン ${removedRevisionId} は承認済みスナップショットのままです。`;
-    case "zh":
-      return `已恢复修订版本 ${restoredRevisionId}；修订版本 ${removedRevisionId} 仍是已批准的快照。`;
-    default:
-      return `Revision ${restoredRevisionId} restored; revision ${removedRevisionId} remains an approved snapshot.`;
-  }
-}
-
-export function takedownNotice(locale: Locale, hiddenRevisionId: string) {
-  switch (locale) {
-    case "ja":
-      return `緊急停止によりリビジョン ${hiddenRevisionId} をプロフィール・ディレクトリ・ギャラリー全体から非公開にしました。このセッションでの再公開はロックされています。`;
-    case "zh":
-      return `紧急下线已在资料页、名录与相册中隐藏修订版本 ${hiddenRevisionId}。本次会话已锁定，无法重新发布。`;
-    default:
-      return `Emergency takedown hid public revision ${hiddenRevisionId} across profile, directory and gallery. This session is closed to republishing.`;
-  }
-}
-
-export function takedownAuditDetail(locale: Locale, hiddenRevisionId: string) {
-  switch (locale) {
-    case "ja":
-      return `リビジョン ${hiddenRevisionId} を非表示にした後、公開ポインタをクリアしました。再公開はロックされています。`;
-    case "zh":
-      return `隐藏修订版本 ${hiddenRevisionId} 后，公开指针已被清除；重新发布已被锁定。`;
-    default:
-      return `Public pointer cleared after hiding revision ${hiddenRevisionId}; republishing is locked.`;
-  }
-}
-
-export function roleChangedNotice(locale: Locale, actorId: string) {
-  switch (locale) {
-    case "ja":
-      return `シミュレーション上の担当者が ${actorId} に変更されました。`;
-    case "zh":
-      return `模拟身份已切换为 ${actorId}。`;
-    default:
-      return `Simulated identity changed to ${actorId}.`;
-  }
-}
+// --- Admin console dynamic notices ---
 
 export function accountUpdatedNotice(locale: Locale, artistName: string) {
   switch (locale) {
@@ -228,28 +103,6 @@ export function oneTimeCodeLabel(locale: Locale, displayName: string) {
   }
 }
 
-export function suppliedPhotoAlt(locale: Locale, displayName: string, index: number) {
-  switch (locale) {
-    case "ja":
-      return `${displayName}、提供写真 ${index}`;
-    case "zh":
-      return `${displayName}，提供的照片 ${index}`;
-    default:
-      return `${displayName}, supplied view ${index}`;
-  }
-}
-
-export function profilePreviewAlt(locale: Locale, displayName: string) {
-  switch (locale) {
-    case "ja":
-      return `${displayName} のプロフィールプレビュー`;
-    case "zh":
-      return `${displayName} 的资料预览`;
-    default:
-      return `${displayName} profile preview`;
-  }
-}
-
 export function newDraftNotice(locale: Locale, artistName: string) {
   switch (locale) {
     case "ja":
@@ -258,6 +111,28 @@ export function newDraftNotice(locale: Locale, artistName: string) {
       return `正在准备 ${artistName} 的新草稿。`;
     default:
       return `Preparing a new ${artistName} draft.`;
+  }
+}
+
+export function modelProfileSavedNotice(locale: Locale, name: string) {
+  switch (locale) {
+    case "ja":
+      return `${name} のプロフィールを更新しました。`;
+    case "zh":
+      return `${name} 的资料已更新。`;
+    default:
+      return `${name} was updated.`;
+  }
+}
+
+export function announcementSavedNotice(locale: Locale, title: string) {
+  switch (locale) {
+    case "ja":
+      return `「${title}」を保存しました。`;
+    case "zh":
+      return `已保存「${title}」。`;
+    default:
+      return `${title} was saved.`;
   }
 }
 

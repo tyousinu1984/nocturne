@@ -3,16 +3,16 @@
 
 import {
   type AnchorHTMLAttributes,
+  type FormEvent,
   useEffect,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import { usePathname } from "next/navigation";
-import { artists, type Artist } from "./data";
+import type { Artist } from "./data";
 import { useTranslations } from "../i18n/context";
-import { localeHref } from "../i18n/locale-path";
+import { castProfileHref, localeHref } from "../i18n/locale-path";
 import { localizeArtist } from "../i18n/localize-artist";
 import { SUPPORTED_LOCALES, localeLabel, type Locale } from "../i18n/locales";
 import {
@@ -20,6 +20,7 @@ import {
   currentIndexTitle,
   notesFromTitle,
   profilePortraitAlt,
+  scheduleDateLabel,
   showProfilePhotoAria,
 } from "../i18n/messages";
 
@@ -39,15 +40,13 @@ function Link({ href, children, ...props }: StaticLinkProps) {
 // render time via LocalizedLink below.
 const navHrefs = [
   ["home", "/"],
-  ["cast", "/#directory"],
-  ["schedule", "/#schedule"],
-  ["ranking", "/#ranking"],
-  ["system", "/#system"],
-  ["access", "/#access"],
-  ["reviews", "/#reviews"],
-  ["blog", "/#journal"],
-  ["faq", "/#faq"],
-  ["contact", "/#contact"],
+  ["cast", "/cast/list.html"],
+  ["schedule", "/schedule.html"],
+  ["system", "/system.html"],
+  ["blog", "/blog.html"],
+  ["faq", "/faq.html"],
+  ["contact", "/contact.html"],
+  ["recruit", "/recruit.html"],
 ] as const;
 
 function ArrowIcon() {
@@ -121,127 +120,6 @@ function portraitPath(slug: string) {
 function artistPhotoPath(slug: string, index: number) {
   const photos = artistPhotos(slug);
   return photos[index % photos.length];
-}
-
-function AgeGate() {
-  const { dictionary } = useTranslations();
-  const [declined, setDeclined] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const confirmed = useSyncExternalStore(
-    (onStoreChange) => {
-      window.addEventListener("storage", onStoreChange);
-      window.addEventListener("nocturne-age-change", onStoreChange);
-      return () => {
-        window.removeEventListener("storage", onStoreChange);
-        window.removeEventListener("nocturne-age-change", onStoreChange);
-      };
-    },
-    () => window.localStorage.getItem("nocturne-age-confirmed") === "yes",
-    () => false,
-  );
-
-  useEffect(() => {
-    if (confirmed) return;
-
-    const panel = panelRef.current;
-    const siteContent = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-site-content]"),
-    );
-    const previousOverflow = document.body.style.overflow;
-
-    document.body.style.overflow = "hidden";
-    siteContent.forEach((element) => {
-      element.inert = true;
-      element.setAttribute("aria-hidden", "true");
-    });
-
-    const focusableSelector =
-      'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])';
-    const focusables = panel
-      ? Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector))
-      : [];
-
-    focusables[0]?.focus();
-
-    function trapFocus(event: KeyboardEvent) {
-      if (event.key !== "Tab" || focusables.length === 0) return;
-
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      const active = document.activeElement;
-
-      if (event.shiftKey && (active === first || !panel?.contains(active))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (active === last || !panel?.contains(active))) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    panel?.addEventListener("keydown", trapFocus);
-
-    return () => {
-      panel?.removeEventListener("keydown", trapFocus);
-      document.body.style.overflow = previousOverflow;
-      siteContent.forEach((element) => {
-        element.inert = false;
-        element.removeAttribute("aria-hidden");
-      });
-    };
-  }, [confirmed, declined]);
-
-  function accept() {
-    window.localStorage.setItem("nocturne-age-confirmed", "yes");
-    window.dispatchEvent(new Event("nocturne-age-change"));
-  }
-
-  if (confirmed) return null;
-
-  return (
-    <div className="gate-overlay">
-      <div
-        className="gate-panel"
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="gate-title"
-        aria-describedby="gate-copy"
-        aria-label={dictionary.ageGate.ariaLabel}
-      >
-        <p className="gate-overline">{dictionary.ageGate.overline}</p>
-        <div className="gate-logo">
-          <span>NOCTURNE</span>
-          <small>{dictionary.ageGate.logoSub}</small>
-        </div>
-        <div className="gate-rule" />
-        {declined ? (
-          <div className="gate-declined" role="status">
-            <h2 id="gate-title">{dictionary.ageGate.declinedTitle}</h2>
-            <p id="gate-copy">{dictionary.ageGate.declinedBody}</p>
-            <button type="button" className="gate-text-button" onClick={() => setDeclined(false)}>
-              {dictionary.ageGate.return}
-            </button>
-          </div>
-        ) : (
-          <>
-            <h2 id="gate-title">{dictionary.ageGate.welcomeTitle}</h2>
-            <p id="gate-copy">{dictionary.ageGate.welcomeBody}</p>
-            <div className="gate-actions">
-              <button type="button" className="gate-enter" onClick={accept}>
-                {dictionary.ageGate.enter}
-                <ArrowIcon />
-              </button>
-              <button type="button" className="gate-exit" onClick={() => setDeclined(true)}>
-                {dictionary.ageGate.exit}
-              </button>
-            </div>
-          </>
-        )}
-        <p className="gate-note">{dictionary.ageGate.note}</p>
-      </div>
-    </div>
-  );
 }
 
 function Brand({ compact = false }: { compact?: boolean }) {
@@ -377,27 +255,6 @@ function Header() {
         </div>
       </div>
 
-      <section
-        className="quick-section"
-        aria-label={dictionary.header.quickGuideAria}
-        data-menu-underlay
-      >
-        <div className="site-width quick-grid">
-          {dictionary.quickLinks.map((item) => (
-            <a href={item.href} className="quick-card" key={item.number}>
-              <img src={portraitPath(item.slug)} alt="" />
-              <span className="quick-shade" />
-              <b>{item.number}</b>
-              <div>
-                <strong>{item.title}</strong>
-                <small>{item.sub}</small>
-              </div>
-              <ArrowIcon />
-            </a>
-          ))}
-        </div>
-      </section>
-
       <nav
         className="main-navigation"
         aria-label={dictionary.header.primaryNavAria}
@@ -443,7 +300,7 @@ function Header() {
 }
 
 function Hero() {
-  const { dictionary } = useTranslations();
+  const { locale, dictionary } = useTranslations();
   const heroArtists = ["ren", "mio", "sora", "yuna"];
 
   return (
@@ -466,7 +323,7 @@ function Hero() {
           <em>{dictionary.hero.headlineLine2}</em>
         </h1>
         <p className="hero-description">{dictionary.hero.description}</p>
-        <a href="#directory" className="hero-button">
+        <a href={localeHref(locale, "/cast/list.html")} className="hero-button">
           {dictionary.hero.viewAllCast}
           <ArrowIcon />
         </a>
@@ -480,55 +337,88 @@ function Hero() {
   );
 }
 
-function LiveTicker() {
-  const { locale, dictionary } = useTranslations();
-  const names = [...artists.slice(0, 9), ...artists.slice(0, 9)];
+// Homepage-only from here down: the promotions/news list and today's
+// availability preview that replaced the old single NoticeBanner + the
+// SystemGuide/Journal sections (moved to their own pages — /system.html,
+// /blog.html). Reviews was a third such section but has been removed
+// entirely (it was placeholder review copy, not real content).
+
+export type HomeNewsItem = { id: string; date: string; title: string; body: string };
+
+// `news` comes from app/[locale]/page.tsx's listAnnouncements() call
+// (app/admin/announcement-store.ts) — admin-editable, no longer static
+// dictionary content.
+function HomeNews({ news }: { news: HomeNewsItem[] }) {
+  const { dictionary } = useTranslations();
   return (
-    <section className="live-ticker" id="schedule">
-      <div className="live-label">
-        <i />
-        {dictionary.ticker.nowOnline}
-      </div>
-      <div className="live-window">
-        <div className="live-track">
-          {names.map((artist, index) => {
-            const localized = localizeArtist(artist, dictionary);
-            return (
-              <Link
-                href={localeHref(locale, `/profile/${artist.slug}`)}
-                key={`${artist.slug}-${index}`}
-              >
-                <img src={portraitPath(artist.slug)} alt="" />
-                <span>
-                  <b>{artist.name}</b>
-                  <small>{localized.localizedDistrict}</small>
-                </span>
-                <em>{localized.localizedStatus}</em>
-              </Link>
-            );
-          })}
+    <section className="home-news">
+      <div className="site-width">
+        <SectionTitle
+          eyebrow={dictionary.homeNews.eyebrow}
+          title={dictionary.homeNews.title}
+          note={dictionary.homeNews.note}
+        />
+        <div className="home-news-grid">
+          {news.map((item) => (
+            <article key={item.id}>
+              <span>{item.date}</span>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </article>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-function NoticeBanner() {
-  const { dictionary } = useTranslations();
+export type TodayAvailabilityEntry = {
+  artist: Artist;
+  startTime: string;
+  endTime: string;
+};
+
+// Fed by app/[locale]/page.tsx (a Server Component), which queries
+// today's published attendance the same way app/[locale]/schedule/page.tsx
+// queries the whole week — see listPublicAttendance in
+// app/admin/attendance-store.ts.
+function TodayAvailability({ entries }: { entries: TodayAvailabilityEntry[] }) {
+  const { locale, dictionary } = useTranslations();
   return (
-    <section className="notice-wrap">
-      <div className="site-width notice-banner">
-        <div className="notice-date">
-          <b>06</b>
-          <span>{dictionary.notice.month}</span>
-        </div>
-        <div>
-          <p>{dictionary.notice.updatedToday}</p>
-          <h2>{dictionary.notice.title}</h2>
-          <span>{dictionary.notice.body}</span>
-        </div>
-        <a href="#directory">
-          {dictionary.notice.cta}
+    <section className="today-availability">
+      <div className="site-width">
+        <SectionTitle
+          eyebrow={dictionary.todayAvailability.eyebrow}
+          title={dictionary.todayAvailability.title}
+          note={dictionary.todayAvailability.note}
+        />
+        {entries.length > 0 ? (
+          <div className="today-availability-list">
+            {entries.map(({ artist, startTime, endTime }) => {
+              const localized = localizeArtist(artist, dictionary);
+              return (
+                <Link
+                  className="today-availability-card"
+                  href={castProfileHref(locale, artist.id)}
+                  key={artist.slug}
+                >
+                  <img src={portraitPath(artist.slug)} alt="" />
+                  <div>
+                    <b>{artist.name}</b>
+                    <span>{localized.localizedRole}</span>
+                    <em>
+                      {startTime}–{endTime}
+                    </em>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="today-availability-empty">{dictionary.todayAvailability.none}</p>
+        )}
+        <a className="today-availability-cta" href={localeHref(locale, "/schedule.html")}>
+          {dictionary.todayAvailability.viewFullSchedule}
           <ArrowIcon />
         </a>
       </div>
@@ -562,7 +452,7 @@ function ArtistCard({ artist, index }: { artist: Artist; index: number }) {
   const { locale, dictionary } = useTranslations();
   const localized = localizeArtist(artist, dictionary);
   const locationClass = artist.district.toLowerCase();
-  const profileHref = localeHref(locale, `/profile/${artist.slug}`);
+  const profileHref = castProfileHref(locale, artist.id);
   return (
     <article className="cast-card">
       <Link className="cast-photo" href={profileHref}>
@@ -598,7 +488,7 @@ function ArtistCard({ artist, index }: { artist: Artist; index: number }) {
   );
 }
 
-function Directory() {
+function Directory({ artists }: { artists: Artist[] }) {
   const { dictionary } = useTranslations();
   const [district, setDistrict] = useState<"All" | "Aoyama" | "Ginza" | "Daikanyama">("All");
   const [status, setStatus] = useState<"All" | "Tonight" | "This week" | "Private">("All");
@@ -615,7 +505,7 @@ function Directory() {
         .toLowerCase();
       return districtMatch && statusMatch && (!needle || text.includes(needle));
     });
-  }, [district, query, status]);
+  }, [artists, district, query, status]);
 
   function resetCount() {
     setVisibleCount(8);
@@ -730,38 +620,6 @@ function Directory() {
   );
 }
 
-function Ranking() {
-  const { locale, dictionary } = useTranslations();
-  return (
-    <section className="ranking-section" id="ranking">
-      <div className="site-width">
-        <SectionTitle
-          eyebrow={dictionary.sections.ranking.eyebrow}
-          title={dictionary.sections.ranking.title}
-          note={dictionary.sections.ranking.note}
-          light
-        />
-        <div className="ranking-grid">
-          {artists.slice(0, 5).map((artist, index) => {
-            const localized = localizeArtist(artist, dictionary);
-            return (
-              <Link href={localeHref(locale, `/profile/${artist.slug}`)} key={artist.slug}>
-                <span className="ranking-number">0{index + 1}</span>
-                <img src={portraitPath(artist.slug)} alt="" />
-                <div>
-                  <b>{artist.name}</b>
-                  <small>{localized.localizedRole}</small>
-                </div>
-                <ArrowIcon />
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function SystemGuide() {
   const { dictionary } = useTranslations();
   return (
@@ -788,41 +646,12 @@ function SystemGuide() {
   );
 }
 
-function Reviews() {
-  const { dictionary } = useTranslations();
-  return (
-    <section className="review-section" id="reviews">
-      <div className="site-width">
-        <SectionTitle
-          eyebrow={dictionary.sections.reviews.eyebrow}
-          title={dictionary.sections.reviews.title}
-          note={dictionary.sections.reviews.note}
-        />
-        <div className="review-grid">
-          {dictionary.reviewsData.map((review, index) => (
-            <article key={review.title}>
-              <div className="review-icon">
-                <img src={portraitPath(artists[index].slug)} alt="" />
-              </div>
-              <div>
-                <span>{review.date}</span>
-                <h3>{review.title}</h3>
-                <p>{review.body}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 // Static (untranslated) journal metadata — which artist and how many days
 // ago each story runs — paired with dictionary.journalStories by index for
 // the translated category/date/title.
 const journalArtistIndexes = [7, 9] as const;
 
-function Journal() {
+function Journal({ artists }: { artists: Artist[] }) {
   const { locale, dictionary } = useTranslations();
   return (
     <section className="journal-section" id="journal">
@@ -843,7 +672,7 @@ function Journal() {
                   <span>{story.category}</span>
                   <time>{story.date}</time>
                   <h3>{story.title}</h3>
-                  <Link href={localeHref(locale, `/profile/${artist.slug}`)}>
+                  <Link href={castProfileHref(locale, artist.id)}>
                     {dictionary.card.readProfile}
                     <ArrowIcon />
                   </Link>
@@ -861,31 +690,17 @@ function Footer() {
   const { locale, dictionary } = useTranslations();
   return (
     <footer className="footer" id="contact" data-menu-underlay>
-      <section className="access-band" id="access">
-        <div className="site-width">
-          {dictionary.footer.districts.map((district, index) => (
-            <div key={district.name}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <b>{district.name}</b>
-              <small>{district.note}</small>
-            </div>
-          ))}
-        </div>
-      </section>
       <div className="site-width footer-main">
         <Brand />
         <div className="footer-links">
           <div>
             <b>{dictionary.footer.groupDirectory}</b>
-            <Link href={localeHref(locale, "/#directory")}>{dictionary.footer.linkAllCast}</Link>
-            <Link href={localeHref(locale, "/#schedule")}>{dictionary.footer.linkSchedule}</Link>
-            <Link href={localeHref(locale, "/#ranking")}>{dictionary.footer.linkRanking}</Link>
+            <Link href={localeHref(locale, "/cast/list.html")}>{dictionary.footer.linkAllCast}</Link>
           </div>
           <div id="faq">
             <b>{dictionary.footer.groupGuide}</b>
-            <Link href={localeHref(locale, "/#system")}>{dictionary.footer.linkFirstGuide}</Link>
-            <Link href={localeHref(locale, "/#reviews")}>{dictionary.footer.linkReviews}</Link>
-            <Link href={localeHref(locale, "/#journal")}>{dictionary.footer.linkBlog}</Link>
+            <Link href={localeHref(locale, "/system.html")}>{dictionary.footer.linkFirstGuide}</Link>
+            <Link href={localeHref(locale, "/blog.html")}>{dictionary.footer.linkBlog}</Link>
           </div>
           <div>
             <b>{dictionary.footer.groupInformation}</b>
@@ -903,21 +718,483 @@ function Footer() {
   );
 }
 
-export function HomeExperience() {
+export function HomeExperience({
+  todayAvailability,
+  news,
+}: {
+  todayAvailability: TodayAvailabilityEntry[];
+  news: HomeNewsItem[];
+}) {
   return (
     <>
-      <AgeGate />
-      <div data-site-content>
+      <div>
         <Header />
         <main data-menu-underlay>
           <Hero />
-          <LiveTicker />
-          <NoticeBanner />
-          <Directory />
-          <Ranking />
+          <HomeNews news={news} />
+          <TodayAvailability entries={todayAvailability} />
+        </main>
+        <Footer />
+      </div>
+    </>
+  );
+}
+
+// Used by app/[locale]/cast/page.tsx (public URL: /cast/list.html — see
+// next.config.ts's rewrites). Directory used to be an anchor-scrolled
+// section embedded in the homepage; it's now a real standalone page.
+export function CastListExperience({ artists }: { artists: Artist[] }) {
+  return (
+    <>
+      <div>
+        <Header />
+        <main data-menu-underlay>
+          <Directory artists={artists} />
+        </main>
+        <Footer />
+      </div>
+    </>
+  );
+}
+
+// The next two are mechanical extractions of sections that used to be
+// anchor-scrolled parts of the homepage (SystemGuide/Journal) into their
+// own standalone pages, same pattern as CastListExperience above. Public
+// URLs: /system.html, /blog.html (see next.config.ts's rewrites). Reviews
+// used to be a third such page but has been removed entirely.
+
+export function SystemGuideExperience() {
+  return (
+    <>
+      <div>
+        <Header />
+        <main data-menu-underlay>
           <SystemGuide />
-          <Reviews />
-          <Journal />
+        </main>
+        <Footer />
+      </div>
+    </>
+  );
+}
+
+export function BlogExperience({ artists }: { artists: Artist[] }) {
+  return (
+    <>
+      <div>
+        <Header />
+        <main data-menu-underlay>
+          <Journal artists={artists} />
+        </main>
+        <Footer />
+      </div>
+    </>
+  );
+}
+
+// Public URL: /faq.html. Native <details>/<summary> — keyboard-accessible
+// and expand/collapse without any client state of our own.
+function FaqList() {
+  const { dictionary } = useTranslations();
+  return (
+    <section className="faq-page">
+      <div className="site-width">
+        <SectionTitle
+          eyebrow={dictionary.faqPage.eyebrow}
+          title={dictionary.faqPage.title}
+          note={dictionary.faqPage.note}
+        />
+        <div className="faq-list">
+          {dictionary.faqPage.items.map((item) => (
+            <details key={item.question}>
+              <summary>{item.question}</summary>
+              <p>{item.answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function FaqExperience() {
+  return (
+    <>
+      <div>
+        <Header />
+        <main data-menu-underlay>
+          <FaqList />
+        </main>
+        <Footer />
+      </div>
+    </>
+  );
+}
+
+// Public URL: /contact.html. Real submit-and-follow-up inquiry form (see
+// app/api/public/inquiries/route.ts and app/admin/inquiry-store.ts) — not
+// a live booking calendar. Staff review and follow up from the admin
+// console; this form only ever creates a "new" inquiry row.
+function InquiryForm() {
+  const { dictionary } = useTranslations();
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const headcountRaw = Number.parseInt(String(data.get("headcount") ?? ""), 10);
+
+    setStatus("submitting");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch("/api/public/inquiries", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          companyName: data.get("companyName"),
+          contactName: data.get("contactName"),
+          email: data.get("email"),
+          phone: data.get("phone"),
+          eventName: data.get("eventName"),
+          eventDate: data.get("eventDate"),
+          eventLocation: data.get("eventLocation"),
+          headcount: Number.isInteger(headcountRaw) ? headcountRaw : 0,
+          message: data.get("message"),
+        }),
+      });
+
+      if (response.status === 201) {
+        setStatus("success");
+        form.reset();
+        return;
+      }
+
+      const body = (await response.json().catch(() => null)) as { code?: string } | null;
+      setStatus("error");
+      setErrorMessage(
+        body?.code === "invalid_input" ? dictionary.contactPage.errorInvalid : dictionary.contactPage.errorGeneric,
+      );
+    } catch {
+      setStatus("error");
+      setErrorMessage(dictionary.contactPage.errorGeneric);
+    }
+  }
+
+  if (status === "success") {
+    return (
+      <div className="contact-success" role="status">
+        <h2>{dictionary.contactPage.successTitle}</h2>
+        <p>{dictionary.contactPage.successBody}</p>
+      </div>
+    );
+  }
+
+  return (
+    <form className="contact-form" onSubmit={handleSubmit}>
+      <label>
+        <span>{dictionary.contactPage.companyLabel}</span>
+        <input name="companyName" required />
+      </label>
+      <label>
+        <span>{dictionary.contactPage.contactNameLabel}</span>
+        <input name="contactName" required />
+      </label>
+      <label>
+        <span>{dictionary.contactPage.emailLabel}</span>
+        <input name="email" type="email" required />
+      </label>
+      <label>
+        <span>{dictionary.contactPage.phoneLabel}</span>
+        <input name="phone" type="tel" />
+      </label>
+      <label>
+        <span>{dictionary.contactPage.eventNameLabel}</span>
+        <input name="eventName" required />
+      </label>
+      <label>
+        <span>{dictionary.contactPage.eventDateLabel}</span>
+        <input name="eventDate" type="date" required />
+      </label>
+      <label>
+        <span>{dictionary.contactPage.eventLocationLabel}</span>
+        <input name="eventLocation" required />
+      </label>
+      <label>
+        <span>{dictionary.contactPage.headcountLabel}</span>
+        <input name="headcount" type="number" min={1} defaultValue={1} required />
+      </label>
+      <label className="contact-form-message">
+        <span>{dictionary.contactPage.messageLabel}</span>
+        <textarea name="message" rows={4} placeholder={dictionary.contactPage.messagePlaceholder} />
+      </label>
+      {status === "error" ? (
+        <p className="contact-form-error" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
+      <button type="submit" disabled={status === "submitting"}>
+        {status === "submitting" ? dictionary.contactPage.submitting : dictionary.contactPage.submit}
+      </button>
+    </form>
+  );
+}
+
+function ContactPage() {
+  const { dictionary } = useTranslations();
+  return (
+    <section className="contact-page">
+      <div className="site-width">
+        <SectionTitle
+          eyebrow={dictionary.contactPage.eyebrow}
+          title={dictionary.contactPage.title}
+          note={dictionary.contactPage.note}
+        />
+        <InquiryForm />
+      </div>
+    </section>
+  );
+}
+
+export function ContactExperience() {
+  return (
+    <>
+      <div>
+        <Header />
+        <main data-menu-underlay>
+          <ContactPage />
+        </main>
+        <Footer />
+      </div>
+    </>
+  );
+}
+
+// Public URL: /recruit.html. Real submit-and-follow-up model application
+// form (see app/api/public/applications/route.ts and
+// app/admin/application-store.ts) — same pattern as the /contact.html
+// inquiry form, just a different table/form/audience (applicants, not
+// corporate clients).
+function ApplicationForm() {
+  const { dictionary } = useTranslations();
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+
+    setStatus("submitting");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch("/api/public/applications", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: data.get("name"),
+          email: data.get("email"),
+          phone: data.get("phone"),
+          portfolioUrl: data.get("portfolioUrl"),
+          experience: data.get("experience"),
+          message: data.get("message"),
+        }),
+      });
+
+      if (response.status === 201) {
+        setStatus("success");
+        form.reset();
+        return;
+      }
+
+      const body = (await response.json().catch(() => null)) as { code?: string } | null;
+      setStatus("error");
+      setErrorMessage(
+        body?.code === "invalid_input"
+          ? dictionary.recruitPage.errorInvalid
+          : dictionary.recruitPage.errorGeneric,
+      );
+    } catch {
+      setStatus("error");
+      setErrorMessage(dictionary.recruitPage.errorGeneric);
+    }
+  }
+
+  if (status === "success") {
+    return (
+      <div className="contact-success" role="status">
+        <h2>{dictionary.recruitPage.successTitle}</h2>
+        <p>{dictionary.recruitPage.successBody}</p>
+      </div>
+    );
+  }
+
+  return (
+    <form className="contact-form" onSubmit={handleSubmit}>
+      <label>
+        <span>{dictionary.recruitPage.nameLabel}</span>
+        <input name="name" required />
+      </label>
+      <label>
+        <span>{dictionary.recruitPage.emailLabel}</span>
+        <input name="email" type="email" required />
+      </label>
+      <label>
+        <span>{dictionary.recruitPage.phoneLabel}</span>
+        <input name="phone" type="tel" />
+      </label>
+      <label>
+        <span>{dictionary.recruitPage.portfolioLabel}</span>
+        <input name="portfolioUrl" type="url" />
+      </label>
+      <label className="contact-form-message">
+        <span>{dictionary.recruitPage.experienceLabel}</span>
+        <textarea name="experience" rows={3} />
+      </label>
+      <label className="contact-form-message">
+        <span>{dictionary.recruitPage.messageLabel}</span>
+        <textarea name="message" rows={4} placeholder={dictionary.recruitPage.messagePlaceholder} />
+      </label>
+      {status === "error" ? (
+        <p className="contact-form-error" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
+      <button type="submit" disabled={status === "submitting"}>
+        {status === "submitting" ? dictionary.recruitPage.submitting : dictionary.recruitPage.submit}
+      </button>
+    </form>
+  );
+}
+
+function RecruitPage() {
+  const { dictionary } = useTranslations();
+  return (
+    <section className="contact-page">
+      <div className="site-width">
+        <SectionTitle
+          eyebrow={dictionary.recruitPage.eyebrow}
+          title={dictionary.recruitPage.title}
+          note={dictionary.recruitPage.note}
+        />
+        <div className="recruit-requirements">
+          <h3>{dictionary.recruitPage.requirementsTitle}</h3>
+          <ul>
+            {dictionary.recruitPage.requirements.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+        <h3 className="recruit-form-title">{dictionary.recruitPage.formTitle}</h3>
+        <ApplicationForm />
+      </div>
+    </section>
+  );
+}
+
+export function RecruitExperience() {
+  return (
+    <>
+      <div>
+        <Header />
+        <main data-menu-underlay>
+          <RecruitPage />
+        </main>
+        <Footer />
+      </div>
+    </>
+  );
+}
+
+export type ScheduleDayEntry = {
+  artist: Artist;
+  startTime: string;
+  endTime: string;
+};
+
+export type ScheduleDay = {
+  date: string;
+  dayKey: "THU" | "FRI" | "SAT" | "SUN" | "MON" | "TUE" | "WED";
+  entries: ScheduleDayEntry[];
+};
+
+// Used by app/[locale]/schedule/page.tsx (public URL: /schedule.html — see
+// next.config.ts's rewrites). The Server Component page fetches published
+// attendance per artist (app/admin/attendance-store.ts's
+// listPublicAttendance — the same function the public per-profile schedule
+// already uses), groups it by calendar date for the current Mon–Sun week,
+// and passes that down here rather than this Client Component fetching or
+// re-grouping it itself. `initialDayIndex` lets the page open on today
+// instead of always defaulting to Monday.
+export function ScheduleExperience({
+  week,
+  initialDayIndex = 0,
+}: {
+  week: ScheduleDay[];
+  initialDayIndex?: number;
+}) {
+  const { locale, dictionary } = useTranslations();
+  const [activeIndex, setActiveIndex] = useState(initialDayIndex);
+  const activeDay = week[activeIndex] ?? week[0];
+
+  return (
+    <>
+      <div>
+        <Header />
+        <main data-menu-underlay>
+          <section className="schedule-page">
+            <div className="site-width">
+              <SectionTitle
+                eyebrow={dictionary.schedulePage.eyebrow}
+                title={dictionary.schedulePage.title}
+                note={dictionary.schedulePage.note}
+              />
+              <div className="schedule-tabs" role="tablist">
+                {week.map((day, index) => (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={index === activeIndex}
+                    className={index === activeIndex ? "is-active" : ""}
+                    onClick={() => setActiveIndex(index)}
+                    key={day.date}
+                  >
+                    {scheduleDateLabel(locale, day.date, dictionary.weekdayAbbrev[day.dayKey])}
+                    {day.entries.length > 0 ? (
+                      <span className="schedule-tab-count">{day.entries.length}</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+              <div className="schedule-day-panel" role="tabpanel">
+                {activeDay.entries.length > 0 ? (
+                  <ul className="schedule-day-entries">
+                    {activeDay.entries.map(({ artist, startTime, endTime }) => {
+                      const localized = localizeArtist(artist, dictionary);
+                      return (
+                        <li key={artist.slug}>
+                          <Link href={castProfileHref(locale, artist.id)}>
+                            <img src={portraitPath(artist.slug)} alt="" />
+                            <div>
+                              <b>{artist.name}</b>
+                              <span>{localized.localizedRole}</span>
+                            </div>
+                            <em>
+                              {startTime}–{endTime}
+                            </em>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="schedule-day-empty">{dictionary.schedulePage.noneScheduled}</p>
+                )}
+              </div>
+            </div>
+          </section>
         </main>
         <Footer />
       </div>
@@ -1103,22 +1380,21 @@ function ProfileSchedule({ artist }: { artist: Artist }) {
   );
 }
 
-export function ProfileExperience({ artist }: { artist: Artist }) {
+export function ProfileExperience({ artist, artists }: { artist: Artist; artists: Artist[] }) {
   const { locale, dictionary } = useTranslations();
   const localized = localizeArtist(artist, dictionary);
   const related = artists.filter((candidate) => candidate.slug !== artist.slug).slice(0, 4);
 
   return (
     <>
-      <AgeGate />
-      <div data-site-content>
+      <div>
         <Header />
         <main className="profile-page" data-menu-underlay>
           <div className="profile-path">
             <div className="site-width">
               <Link href={localeHref(locale, "/")}>{dictionary.profile.breadcrumbHome}</Link>
               <span>/</span>
-              <Link href={localeHref(locale, "/#directory")}>{dictionary.profile.breadcrumbCast}</Link>
+              <Link href={localeHref(locale, "/cast/list.html")}>{dictionary.profile.breadcrumbCast}</Link>
               <span>/</span>
               <b>{artist.name.toUpperCase()}</b>
             </div>
@@ -1165,7 +1441,7 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
                     <b>{localized.localizedDisciplines.join(" / ")}</b>
                   </div>
                 </div>
-                <Link className="profile-back-button" href={localeHref(locale, "/#directory")}>
+                <Link className="profile-back-button" href={localeHref(locale, "/cast/list.html")}>
                   {dictionary.profile.returnToDirectory}
                   <ArrowIcon />
                 </Link>
@@ -1226,25 +1502,6 @@ export function ProfileExperience({ artist }: { artist: Artist }) {
                         </h3>
                         <p>{dictionary.profile.blogBody}</p>
                       </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <section className="profile-review-section">
-                <div className="profile-block-heading">
-                  <span>{dictionary.profile.reviewsEyebrow}</span>
-                  <h2>{dictionary.profile.reviewsTitle}</h2>
-                </div>
-                <div className="profile-review-list">
-                  {dictionary.reviewsData.slice(0, 5).map((review, index) => (
-                    <article key={review.title}>
-                      <div>
-                        <b>0{index + 1}</b>
-                        <span>{review.date}</span>
-                      </div>
-                      <h3>{review.title}</h3>
-                      <p>{review.body}</p>
                     </article>
                   ))}
                 </div>
