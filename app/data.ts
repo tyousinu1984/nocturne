@@ -1,4 +1,9 @@
 export type Artist = {
+  // Stable numeric id used only for the public /cast/profile/{id}.html URL
+  // scheme (see i18n/locale-path.ts's castProfileHref). Everything else in
+  // this codebase (photos, admin, staff accounts, attendance) still keys
+  // off `slug` — do not repurpose id for that.
+  id: number;
   slug: string;
   name: string;
   monogram: string;
@@ -17,6 +22,7 @@ export type Artist = {
 
 export const artists: Artist[] = [
   {
+    id: 1,
     slug: "aika",
     name: "Aika",
     monogram: "AI",
@@ -45,6 +51,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 2,
     slug: "ren",
     name: "Ren",
     monogram: "RE",
@@ -73,6 +80,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 3,
     slug: "mio",
     name: "Mio",
     monogram: "MI",
@@ -101,6 +109,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 4,
     slug: "sora",
     name: "Sora",
     monogram: "SO",
@@ -129,6 +138,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 5,
     slug: "yuna",
     name: "Yuna",
     monogram: "YU",
@@ -157,6 +167,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 6,
     slug: "kei",
     name: "Kei",
     monogram: "KE",
@@ -185,6 +196,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 7,
     slug: "nami",
     name: "Nami",
     monogram: "NA",
@@ -213,6 +225,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 8,
     slug: "rin",
     name: "Rin",
     monogram: "RI",
@@ -241,6 +254,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 9,
     slug: "ema",
     name: "Ema",
     monogram: "EM",
@@ -269,6 +283,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 10,
     slug: "hana",
     name: "Hana",
     monogram: "HA",
@@ -297,6 +312,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 11,
     slug: "noa",
     name: "Noa",
     monogram: "NO",
@@ -325,6 +341,7 @@ export const artists: Artist[] = [
     ],
   },
   {
+    id: 12,
     slug: "mei",
     name: "Mei",
     monogram: "ME",
@@ -354,6 +371,10 @@ export const artists: Artist[] = [
   },
 ];
 
+export function getArtistById(id: number) {
+  return artists.find((artist) => artist.id === id);
+}
+
 export const featureTiles = [
   { eyebrow: "01", title: "The artists", note: "Twelve editorial dossiers" },
   { eyebrow: "02", title: "Tonight", note: "A live editorial index" },
@@ -362,25 +383,3 @@ export const featureTiles = [
   { eyebrow: "05", title: "The studio", note: "How the demo works" },
 ];
 
-export const testimonials = [
-  {
-    quote:
-      "The visual rhythm feels like wandering through a private midnight magazine.",
-    source: "Prototype review 01",
-  },
-  {
-    quote:
-      "Dense enough to explore, calm enough that every profile still has its own air.",
-    source: "Prototype review 02",
-  },
-  {
-    quote:
-      "The cast photography makes the interface feel immediate without losing its editorial structure.",
-    source: "Prototype review 03",
-  },
-  {
-    quote:
-      "A strong demonstration of catalogue hierarchy without a transactional path.",
-    source: "Prototype review 04",
-  },
-];
