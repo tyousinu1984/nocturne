@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { artists } from "../data";
 import { useTranslations } from "../../i18n/context";
-import { newDraftNotice } from "../../i18n/messages";
+import { newDraftNotice, scheduleDateLabel } from "../../i18n/messages";
 import type { Dictionary } from "../../i18n/dictionary-types";
 import {
   type AttendanceAction,
@@ -17,6 +17,7 @@ import {
   attendancePreview,
   replaceAttendanceEntry,
 } from "./attendance-editor-state";
+import { addDaysTokyo, todayInTokyo } from "./tokyo-date";
 
 type AttendancePanelProps = {
   actorKind: "admin" | "cast";
@@ -60,20 +61,25 @@ const statusStep: Record<AttendanceStatus, number> = {
 };
 
 function defaultTokyoDate() {
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(tomorrow);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
+  return addDaysTokyo(todayInTokyo(), 1);
 }
 
-function commandKey(action: AttendanceAction) {
+function commandKey(action: string) {
   return `attendance:${action}:${crypto.randomUUID()}`;
 }
+
+const WEEKDAY_KEYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] as const;
+
+// `date` is a Tokyo-calendar "YYYY-MM-DD" string (see tokyo-date.ts) — the
+// UTC-noon anchor here is only to safely derive the day-of-week, not a
+// real point in time, so plain Date math is fine.
+function weekdayKeyFor(date: string): (typeof WEEKDAY_KEYS)[number] {
+  const [year, month, day] = date.split("-").map(Number);
+  return WEEKDAY_KEYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+}
+
+type WeekRow = { date: string; checked: boolean; startTime: string; endTime: string };
+type WeekResult = { date: string; ok: boolean; message: string };
 
 function eventDate(value: string) {
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) {
@@ -118,9 +124,39 @@ export function AttendancePanel({
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("");
   const [loadState, setLoadState] = useState<AttendanceLoadState>("loading");
-  const [busyAction, setBusyAction] = useState<AttendanceAction | null>(null);
+  const [busyAction, setBusyAction] = useState<AttendanceAction | "quick_publish" | null>(null);
   const [loadError, setLoadError] = useState("");
   const [commandError, setCommandError] = useState("");
+  const [artistFilter, setArtistFilter] = useState("");
+  const [createMode, setCreateMode] = useState<"single" | "week">("single");
+  const [weekStart, setWeekStart] = useState(defaultTokyoDate);
+  const [weekRows, setWeekRows] = useState<WeekRow[]>([]);
+  const [weekAutoPublish, setWeekAutoPublish] = useState(true);
+  const [weekBusy, setWeekBusy] = useState(false);
+  const [weekResults, setWeekResults] = useState<WeekResult[]>([]);
+
+  useEffect(() => {
+    setWeekRows(
+      Array.from({ length: 7 }, (_, index) => ({
+        date: addDaysTokyo(weekStart, index),
+        checked: false,
+        startTime,
+        endTime,
+      })),
+    );
+    setWeekResults([]);
+    // startTime/endTime intentionally excluded — they only seed each row's
+    // initial value; after that, rows are edited independently or bulk-set
+    // via the "apply to checked" button so per-row edits aren't clobbered
+    // every time the shared defaults change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStart]);
+
+  const visibleEntries = useMemo(
+    () => (artistFilter ? entries.filter((entry) => entry.artistSlug === artistFilter) : entries),
+    [entries, artistFilter],
+  );
+  const showWeeklyForm = actorKind === "admin" && !selectedId && createMode === "week";
 
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.id === selectedId) ?? null,
@@ -244,20 +280,24 @@ export function AttendancePanel({
     onNotice(attendance.newAttendanceNotice, newDraftNotice(locale, selectedArtistName));
   }
 
-  async function runCommand(action: AttendanceAction) {
+  async function runCommand(action: AttendanceAction | "quick_publish") {
     if (loadState !== "ready") return;
+    if (action === "quick_publish" && !selectedEntry) return;
     setBusyAction(action);
     setCommandError("");
-    const payload: Record<string, unknown> = {
-      action,
-      artistSlug: selectedArtistSlug,
-      serviceDate,
-      startTime,
-      endTime,
-      note,
-      reason,
-    };
-    if (selectedEntry && action !== "create") {
+    const payload: Record<string, unknown> =
+      action === "quick_publish"
+        ? { action, attendanceId: selectedEntry!.id, expectedVersion: selectedEntry!.version }
+        : {
+            action,
+            artistSlug: selectedArtistSlug,
+            serviceDate,
+            startTime,
+            endTime,
+            note,
+            reason,
+          };
+    if (selectedEntry && action !== "create" && action !== "quick_publish") {
       payload.attendanceId = selectedEntry.id;
       payload.expectedVersion = selectedEntry.version;
     }
@@ -317,6 +357,106 @@ export function AttendancePanel({
     }
   }
 
+  function toggleWeekRow(date: string) {
+    setWeekRows((rows) =>
+      rows.map((row) => (row.date === date ? { ...row, checked: !row.checked } : row)),
+    );
+  }
+
+  function updateWeekRowTime(date: string, field: "startTime" | "endTime", value: string) {
+    setWeekRows((rows) =>
+      rows.map((row) => (row.date === date ? { ...row, [field]: value } : row)),
+    );
+  }
+
+  function applyTimeToCheckedRows() {
+    setWeekRows((rows) => rows.map((row) => (row.checked ? { ...row, startTime, endTime } : row)));
+  }
+
+  // Creates one entry per checked day, sequentially (not in parallel, so a
+  // schedule conflict on one day can't race with another day's insert),
+  // optionally chaining a quick-publish per day. Each day's outcome is
+  // tracked independently — one failure doesn't roll back or block the
+  // rest (see the plan: this is deliberately not all-or-nothing).
+  async function runWeeklyCreate() {
+    const checkedRows = weekRows.filter((row) => row.checked);
+    if (checkedRows.length === 0 || loadState !== "ready") return;
+    setWeekBusy(true);
+    setWeekResults([]);
+    const results: WeekResult[] = [];
+
+    for (const row of checkedRows) {
+      try {
+        const createResponse = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "content-type": "application/json",
+            "idempotency-key": commandKey(`week-create-${row.date}`),
+          },
+          body: JSON.stringify({
+            action: "create",
+            artistSlug: draftArtistSlug,
+            serviceDate: row.date,
+            startTime: row.startTime,
+            endTime: row.endTime,
+            note,
+          }),
+        });
+        const createBody = (await createResponse.json()) as AttendanceCommandResponse & {
+          error?: string;
+        };
+        if (!createResponse.ok) {
+          results.push({ date: row.date, ok: false, message: createBody.error ?? attendance.attendanceCommandFailed });
+          continue;
+        }
+        setEntries((current) => replaceAttendanceEntry(current, createBody.entry));
+        setEvents((current) => [createBody.event, ...current.filter((event) => event.id !== createBody.event.id)]);
+
+        if (!weekAutoPublish) {
+          results.push({ date: row.date, ok: true, message: attendance.weekDayCreatedOnly });
+          continue;
+        }
+
+        const publishResponse = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "content-type": "application/json",
+            "idempotency-key": commandKey(`week-publish-${row.date}`),
+          },
+          body: JSON.stringify({
+            action: "quick_publish",
+            attendanceId: createBody.entry.id,
+            expectedVersion: createBody.entry.version,
+          }),
+        });
+        const publishBody = (await publishResponse.json()) as AttendanceCommandResponse & {
+          error?: string;
+        };
+        if (!publishResponse.ok) {
+          results.push({ date: row.date, ok: false, message: publishBody.error ?? attendance.attendanceCommandFailed });
+          continue;
+        }
+        setEntries((current) => replaceAttendanceEntry(current, publishBody.entry));
+        setEvents((current) => [publishBody.event, ...current.filter((event) => event.id !== publishBody.event.id)]);
+        results.push({ date: row.date, ok: true, message: attendance.weekDayPublished });
+      } catch (error) {
+        results.push({
+          date: row.date,
+          ok: false,
+          message: error instanceof Error ? error.message : attendance.attendanceCommandFailed,
+        });
+      }
+    }
+
+    setWeekResults(results);
+    setWeekBusy(false);
+    const succeeded = results.filter((result) => result.ok).length;
+    onNotice(attendance.weekResultsHeading, `${succeeded}/${results.length}`);
+    await loadAttendance();
+  }
+
   const counts = {
     drafts: entries.filter((entry) => entry.status === "draft").length,
     pending: entries.filter((entry) => entry.status === "pending").length,
@@ -361,6 +501,30 @@ export function AttendancePanel({
             ))}
           </ol>
 
+          {actorKind === "admin" && !selectedEntry && (
+            <div className="ops-attendance-mode-toggle" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={createMode === "single"}
+                className={createMode === "single" ? "is-active" : ""}
+                onClick={() => setCreateMode("single")}
+              >
+                {attendance.createModeSingle}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={createMode === "week"}
+                className={createMode === "week" ? "is-active" : ""}
+                onClick={() => setCreateMode("week")}
+              >
+                {attendance.createModeWeek}
+              </button>
+            </div>
+          )}
+
+          {!showWeeklyForm && (
           <div className="ops-form-grid ops-attendance-form">
             <label>
               <span>{attendance.castProfileLabel}</span>
@@ -404,6 +568,103 @@ export function AttendancePanel({
               </label>
             )}
           </div>
+          )}
+
+          {showWeeklyForm && (
+            <div className="ops-attendance-week-form">
+              <div className="ops-form-grid">
+                <label>
+                  <span>{attendance.castProfileLabel}</span>
+                  <select
+                    aria-label="Cast profile"
+                    value={draftArtistSlug}
+                    disabled={weekBusy}
+                    onChange={(event) => setDraftArtistSlug(event.target.value)}
+                  >
+                    {artists.map((artist) => (
+                      <option key={artist.slug} value={artist.slug}>
+                        {artist.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>{attendance.weekStartLabel}</span>
+                  <input type="date" value={weekStart} disabled={weekBusy} onChange={(event) => setWeekStart(event.target.value)} />
+                </label>
+                <label>
+                  <span>{attendance.startTimeLabel}</span>
+                  <input type="time" value={startTime} disabled={weekBusy} onChange={(event) => setStartTime(event.target.value)} />
+                </label>
+                <label>
+                  <span>{attendance.endTimeLabel}</span>
+                  <input type="time" value={endTime} disabled={weekBusy} onChange={(event) => setEndTime(event.target.value)} />
+                </label>
+              </div>
+              <div className="ops-attendance-actions">
+                <button type="button" className="is-ghost" disabled={weekBusy} onClick={applyTimeToCheckedRows}>
+                  {attendance.applyTimeToChecked}
+                </button>
+              </div>
+
+              <div className="ops-attendance-week-grid">
+                {weekRows.map((row) => (
+                  <label key={row.date} className={row.checked ? "is-checked" : ""}>
+                    <input
+                      type="checkbox"
+                      checked={row.checked}
+                      disabled={weekBusy}
+                      onChange={() => toggleWeekRow(row.date)}
+                    />
+                    <span>{scheduleDateLabel(locale, row.date, dictionary.weekdayAbbrev[weekdayKeyFor(row.date)])}</span>
+                    <input
+                      type="time"
+                      value={row.startTime}
+                      disabled={weekBusy || !row.checked}
+                      onChange={(event) => updateWeekRowTime(row.date, "startTime", event.target.value)}
+                    />
+                    <input
+                      type="time"
+                      value={row.endTime}
+                      disabled={weekBusy || !row.checked}
+                      onChange={(event) => updateWeekRowTime(row.date, "endTime", event.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <label className="ops-attendance-week-autopublish">
+                <input
+                  type="checkbox"
+                  checked={weekAutoPublish}
+                  disabled={weekBusy}
+                  onChange={(event) => setWeekAutoPublish(event.target.checked)}
+                />
+                <span>{attendance.autoPublishAfterCreate}</span>
+              </label>
+
+              <div className="ops-attendance-actions">
+                <button
+                  type="button"
+                  disabled={weekBusy || weekRows.every((row) => !row.checked)}
+                  onClick={runWeeklyCreate}
+                >
+                  {weekBusy ? attendance.creatingWeek : attendance.createWeek}
+                </button>
+              </div>
+
+              {weekResults.length > 0 && (
+                <div className="ops-attendance-week-results">
+                  <span>{attendance.weekResultsHeading}</span>
+                  {weekResults.map((result) => (
+                    <p key={result.date} className={result.ok ? "is-ok" : "is-error"}>
+                      {result.date}: {result.message}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {selectedEntry?.rejectionReason && (
             <div className="ops-attendance-error"><b>{attendance.reviewNote}</b><p>{selectedEntry.rejectionReason}</p></div>
@@ -416,13 +677,16 @@ export function AttendancePanel({
           )}
 
           <div className="ops-attendance-actions">
-            {!selectedEntry && (
+            {!selectedEntry && !showWeeklyForm && (
               <button type="button" disabled={interactionLocked} onClick={() => runCommand("create")}>{busyAction === "create" ? attendance.creating : attendance.createDraft}</button>
             )}
             {selectedEntry?.status === "draft" && (
               <>
                 <button type="button" className="is-secondary" disabled={interactionLocked} onClick={() => runCommand("save_draft")}>{busyAction === "save_draft" ? attendance.saving : actorKind === "admin" ? attendance.saveChanges : attendance.saveDraft}</button>
                 <button type="button" disabled={interactionLocked} onClick={() => runCommand("submit")}>{busyAction === "submit" ? attendance.submitting : attendance.submitForReview}</button>
+                {actorKind === "admin" && (
+                  <button type="button" className="is-ghost" disabled={interactionLocked} onClick={() => runCommand("quick_publish")}>{busyAction === "quick_publish" ? attendance.quickPublishing : attendance.quickPublish}</button>
+                )}
               </>
             )}
             {actorKind === "admin" && selectedEntry?.status === "pending" && (
@@ -430,6 +694,7 @@ export function AttendancePanel({
                 <button type="button" className="is-ghost" disabled={interactionLocked} onClick={() => runCommand("save_draft")}>{busyAction === "save_draft" ? attendance.saving : attendance.saveChanges}</button>
                 <button type="button" className="is-secondary" disabled={interactionLocked || !reason.trim()} onClick={() => runCommand("reject")}>{busyAction === "reject" ? attendance.rejecting : attendance.rejectWithNote}</button>
                 <button type="button" disabled={interactionLocked} onClick={() => runCommand("approve")}>{busyAction === "approve" ? attendance.approving : attendance.approve}</button>
+                <button type="button" className="is-ghost" disabled={interactionLocked} onClick={() => runCommand("quick_publish")}>{busyAction === "quick_publish" ? attendance.quickPublishing : attendance.quickPublish}</button>
               </>
             )}
             {actorKind === "admin" && selectedEntry?.status === "approved" && (
@@ -462,9 +727,30 @@ export function AttendancePanel({
 
           <section className="ops-attendance-records">
             <div className="ops-attendance-side-heading"><span>{actorKind === "cast" ? attendance.myRecords : attendance.allSchedules}</span><button type="button" disabled={interactionLocked} onClick={loadAttendance}>{attendance.refresh}</button></div>
-            {loadState === "loading" ? <p className="ops-attendance-empty">{attendance.loadingAttendance}</p> : entries.length === 0 ? <p className="ops-attendance-empty">{attendance.noRecordsYet}</p> : (
+            {actorKind === "admin" && (
+              <div className="ops-attendance-roster" role="tablist" aria-label={attendance.rosterFilterLabel}>
+                <button type="button" className={artistFilter === "" ? "is-active" : ""} onClick={() => setArtistFilter("")}>
+                  {attendance.rosterAllLabel}<em>{entries.length}</em>
+                </button>
+                {artists.map((artist) => (
+                  <button
+                    type="button"
+                    key={artist.slug}
+                    className={artistFilter === artist.slug ? "is-active" : ""}
+                    onClick={() => setArtistFilter(artist.slug)}
+                  >
+                    {artist.name}<em>{entries.filter((entry) => entry.artistSlug === artist.slug).length}</em>
+                  </button>
+                ))}
+              </div>
+            )}
+            {loadState === "loading" ? (
+              <p className="ops-attendance-empty">{attendance.loadingAttendance}</p>
+            ) : visibleEntries.length === 0 ? (
+              <p className="ops-attendance-empty">{artistFilter ? attendance.noRecordsForArtist : attendance.noRecordsYet}</p>
+            ) : (
               <div className="ops-attendance-record-list">
-                {entries.map((entry) => (
+                {visibleEntries.map((entry) => (
                   <button type="button" className={entry.id === selectedId ? "is-active" : ""} key={entry.id} onClick={() => selectEntry(entry)}>
                     <span>{statusLabels[entry.status]}</span><b>{artistName(entry.artistSlug)} / {entry.serviceDate}</b><small>{entry.startTime}–{entry.endTime} / V{entry.version}</small>
                   </button>

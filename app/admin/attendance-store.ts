@@ -233,31 +233,68 @@ export function createAttendanceStore(
     schemaReady = true;
   }
 
-  async function listAttendanceForAdmin() {
+  // `artistSlug` narrows the board to one model — used by the admin panel's
+  // roster filter (app/admin/attendance-panel.tsx). Without it this pulls
+  // every model's entries at once; the LIMIT is generous (300, up from an
+  // earlier 50) because a dozen models' worth of entries is still a tiny
+  // table — a low cap here just meant later artists silently fell off the
+  // unfiltered "All" view.
+  async function listAttendanceForAdmin(artistSlug?: string) {
     await ensureSchema();
-    const [entryResult, eventResult] = await d1.batch([
-      d1.prepare(
-        `${entrySelect}
-         ORDER BY
-           CASE status
-             WHEN 'pending' THEN 0
-             WHEN 'draft' THEN 1
-             WHEN 'approved' THEN 2
-             WHEN 'published' THEN 3
-             WHEN 'cancelled' THEN 4
-             ELSE 5
-           END,
-           service_date ASC,
-           start_time ASC,
-           created_at DESC
-         LIMIT 50`,
-      ),
-      d1.prepare(
-        `${eventSelect}
-         ORDER BY id DESC
-         LIMIT 100`,
-      ),
-    ]);
+    const entryStatement = artistSlug
+      ? d1
+          .prepare(
+            `${entrySelect}
+             WHERE artist_slug = ?
+             ORDER BY
+               CASE status
+                 WHEN 'pending' THEN 0
+                 WHEN 'draft' THEN 1
+                 WHEN 'approved' THEN 2
+                 WHEN 'published' THEN 3
+                 WHEN 'cancelled' THEN 4
+                 ELSE 5
+               END,
+               service_date ASC,
+               start_time ASC,
+               created_at DESC
+             LIMIT 300`,
+          )
+          .bind(artistSlug)
+      : d1.prepare(
+          `${entrySelect}
+           ORDER BY
+             CASE status
+               WHEN 'pending' THEN 0
+               WHEN 'draft' THEN 1
+               WHEN 'approved' THEN 2
+               WHEN 'published' THEN 3
+               WHEN 'cancelled' THEN 4
+               ELSE 5
+             END,
+             service_date ASC,
+             start_time ASC,
+             created_at DESC
+           LIMIT 300`,
+        );
+    const eventStatement = artistSlug
+      ? d1
+          .prepare(
+            `${eventSelect}
+             WHERE attendance_id IN (
+               SELECT id FROM attendance_entries WHERE artist_slug = ?
+             )
+             ORDER BY id DESC
+             LIMIT 100`,
+          )
+          .bind(artistSlug)
+      : d1.prepare(
+          `${eventSelect}
+           ORDER BY id DESC
+           LIMIT 100`,
+        );
+
+    const [entryResult, eventResult] = await d1.batch([entryStatement, eventStatement]);
 
     return {
       entries: (entryResult as unknown as { results: AttendanceEntryRecord[] })
@@ -734,6 +771,75 @@ export function createAttendanceStore(
     }
   }
 
+  // Admin-only convenience that walks an entry through whatever transitions
+  // it still needs to reach "published" in one call, instead of the admin
+  // clicking submit/approve/publish separately — a real cost when the same
+  // person is doing every step anyway (see app/admin/attendance-domain.ts:
+  // there is no combined transition in the domain model itself, so this
+  // just drives executeAttendanceCommand in a loop; each individual step
+  // still logs a normal, domain-valid action). Permission is enforced by
+  // each inner executeAttendanceCommand call same as any other action.
+  async function quickPublishAttendance({
+    attendanceId,
+    expectedVersion,
+    actor,
+    idempotencyKey,
+  }: {
+    attendanceId: string;
+    expectedVersion: number;
+    actor: AttendanceActor;
+    idempotencyKey: string;
+  }) {
+    const current = await getAttendanceEntry(attendanceId);
+    if (!current) {
+      throw new AttendanceStoreError("not_found", "Attendance entry was not found.");
+    }
+
+    const remainingActions: Exclude<AttendanceAction, "create">[] =
+      current.status === "draft"
+        ? ["submit", "approve", "publish"]
+        : current.status === "pending"
+          ? ["approve", "publish"]
+          : current.status === "approved"
+            ? ["publish"]
+            : [];
+
+    if (current.status === "published") {
+      const latestEvent = await d1
+        .prepare(`${eventSelect} WHERE attendance_id = ? ORDER BY id DESC LIMIT 1`)
+        .bind(attendanceId)
+        .first<AttendanceEventRecord>();
+      if (!latestEvent) {
+        throw new AttendanceStoreError(
+          "database_error",
+          "Attendance entry is published but has no readable history.",
+        );
+      }
+      return { entry: current, event: latestEvent, idempotent: true };
+    }
+    if (remainingActions.length === 0) {
+      throw new AttendanceStoreError(
+        "schedule_conflict",
+        `Attendance in "${current.status}" status cannot be quick-published.`,
+        current,
+      );
+    }
+
+    let result: { entry: AttendanceEntryRecord; event: AttendanceEventRecord; idempotent: boolean } | undefined;
+    let version = expectedVersion;
+    for (const action of remainingActions) {
+      result = await executeAttendanceCommand({
+        action,
+        actor,
+        attendanceId,
+        expectedVersion: version,
+        idempotencyKey: `${idempotencyKey}:${action}`,
+      });
+      version = result.entry.version;
+    }
+    return result!;
+  }
+
   async function listPublicAttendance(artistSlug: string) {
     await ensureSchema();
     const [managedRow, publishedResult] = await Promise.all([
@@ -781,6 +887,7 @@ export function createAttendanceStore(
     listAttendanceForCast,
     getAttendanceEntry,
     executeAttendanceCommand,
+    quickPublishAttendance,
     listPublicAttendance,
   };
 }
@@ -798,8 +905,8 @@ export async function ensureAttendanceSchemaForDevelopment() {
   await (await runtimeAttendanceStore()).ensureSchema();
 }
 
-export async function listAttendanceForAdmin() {
-  return (await runtimeAttendanceStore()).listAttendanceForAdmin();
+export async function listAttendanceForAdmin(artistSlug?: string) {
+  return (await runtimeAttendanceStore()).listAttendanceForAdmin(artistSlug);
 }
 
 export async function listAttendanceForCast(artistSlug: string) {
@@ -812,6 +919,15 @@ export async function getAttendanceEntry(attendanceId: string) {
 
 export async function executeAttendanceCommand(command: AttendanceCommand) {
   return (await runtimeAttendanceStore()).executeAttendanceCommand(command);
+}
+
+export async function quickPublishAttendance(input: {
+  attendanceId: string;
+  expectedVersion: number;
+  actor: AttendanceActor;
+  idempotencyKey: string;
+}) {
+  return (await runtimeAttendanceStore()).quickPublishAttendance(input);
 }
 
 export async function listPublicAttendance(artistSlug: string) {

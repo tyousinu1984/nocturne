@@ -7,13 +7,14 @@ import {
 import {
   executeAttendanceCommand,
   listAttendanceForAdmin,
+  quickPublishAttendance,
 } from "../../../admin/attendance-store";
 import { attendanceErrorResponse } from "../../../admin/attendance-http";
 import { isAttendanceRequestPayload } from "../../../admin/attendance-request";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   const access = await getAdminAccess();
   if (access.kind === "unauthenticated") {
     return Response.json(
@@ -21,8 +22,9 @@ export async function GET() {
       { status: 401 },
     );
   }
+  const artistSlug = new URL(request.url).searchParams.get("artist")?.trim() || undefined;
   try {
-    const data = await listAttendanceForAdmin();
+    const data = await listAttendanceForAdmin(artistSlug);
     return Response.json(data, {
       headers: { "cache-control": "no-store" },
     });
@@ -78,6 +80,36 @@ export async function POST(request: Request) {
       { error: "Request body must be a JSON object." },
       { status: 400 },
     );
+  }
+
+  // "quick_publish" is an API-layer orchestration shortcut, not a domain
+  // action — it isn't in attendanceActions/the attendance_events DB CHECK
+  // constraint, it just drives the normal submit/approve/publish actions
+  // back-to-back server-side (see quickPublishAttendance in
+  // attendance-store.ts). Handled before the isAttendanceAction gate below,
+  // which would otherwise reject it as an unknown action.
+  if (payload.action === "quick_publish") {
+    const attendanceId =
+      typeof payload.attendanceId === "string" ? payload.attendanceId.trim() : "";
+    const expectedVersion =
+      typeof payload.expectedVersion === "number" ? payload.expectedVersion : Number.NaN;
+    if (!attendanceId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      return Response.json(
+        { error: "A valid attendance ID and expected version are required." },
+        { status: 400 },
+      );
+    }
+    try {
+      const result = await quickPublishAttendance({
+        attendanceId,
+        expectedVersion,
+        actor: { userId: access.user.userId, role: "admin" },
+        idempotencyKey,
+      });
+      return Response.json(result);
+    } catch (error) {
+      return attendanceErrorResponse(error);
+    }
   }
 
   if (!isAttendanceAction(payload.action)) {
