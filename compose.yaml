@@ -84,6 +84,25 @@ services:
       timeout: 5s
       retries: 3
 
+  # Local-only convenience so /admin can be opened in an ordinary browser
+  # tab instead of via curl or a header-injecting extension. Mirrors the
+  # production Caddy trust boundary described in the `app` service's
+  # comment above, but injects the trusted header unconditionally — this is
+  # NOT a security boundary, it's a dev shortcut. Only bound to 127.0.0.1,
+  # and entirely optional: `app` on 4189 is untouched and still fails
+  # closed, so the real trust boundary stays testable directly.
+  # Usage: `docker compose up -d admin-proxy`, then open
+  # http://localhost:4188/ja/admin.
+  admin-proxy:
+    image: caddy:2-alpine
+    depends_on:
+      - app
+    volumes:
+      - ./Caddyfile.local:/etc/caddy/Caddyfile:ro
+    ports:
+      - "127.0.0.1:4188:4188"
+    restart: unless-stopped
+
 volumes:
   dev_node_modules:
   db_data:

@@ -1,0 +1,15 @@
+# Local-only stand-in for the real host Caddy instance described in
+# compose.yaml's comment on the `app` service. Production Caddy injects
+# X-Nocturne-Admin-Authenticated only after real Basic Auth succeeds; this
+# just injects it unconditionally so /admin is reachable from an ordinary
+# browser tab in dev, without installing a header-injecting extension.
+#
+# Not a security boundary — anyone who can reach this port is auto-admin.
+# It's only ever bound to 127.0.0.1 (see the `admin-proxy` service), and the
+# real `app` port (4189) is left untouched so the "fails closed without the
+# trusted header" behavior stays testable directly.
+:4188 {
+	reverse_proxy app:4189 {
+		header_up X-Nocturne-Admin-Authenticated 1
+	}
+}
